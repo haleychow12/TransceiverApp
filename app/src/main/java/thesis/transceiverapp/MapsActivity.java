@@ -67,7 +67,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private SupportMapFragment mMapFragment;
 
     private final static double ACCURACY_THRESHOLD = 20; //accuracy threshold in meters
-    private String[] dir= {"left", "diagonal left", "straight", "diagonal right", "right"};
     private float[] mDegrees = {-90, -45, 0, 45, 90};
     private ImageView mArrowImage;
 
@@ -176,7 +175,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            // TODO Auto-generated method stub
                             mArrowImage.setRotation(mDegrees[arrow]);
                             mdistView.setText(String.format("Dist: %.2fm", distEstimate));
                         }
@@ -244,16 +242,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     @Override
     public void onResume(){
-        super.onResume();
         mGoogleApiClient.connect();
+        mSensorManager.registerListener(r, rotationSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        super.onResume();
     }
 
     public void onPause(){
-        super.onPause();
         if (mGoogleApiClient.isConnected()){
             LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
             mGoogleApiClient.disconnect();
         }
+        mSensorManager.unregisterListener(r);
+        super.onPause();
     }
 
     @Override
