@@ -97,13 +97,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mdistView = (TextView) findViewById(R.id.distView);
         mArrowImage = (ImageView) findViewById(R.id.arrow);
         maccuracyView = (TextView) findViewById(R.id.accuracyView);
+        maccuracyView.setOnClickListener(new View.OnClickListener() {
+
+            @Override
+            public void onClick(View v) {
+                Intent i = new Intent(getBaseContext(), SensorActivity.class);
+                startActivity(i);
+            }
+        });
 
 
         mSensorManager = (SensorManager) this.getSystemService(SENSOR_SERVICE);
         rotationSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
-        r = new MapsActivity.RotationSensorEventListener();
-        mSensorManager.registerListener(r, rotationSensor, SensorManager.SENSOR_STATUS_ACCURACY_LOW);
 
+        r = new MapsActivity.RotationSensorEventListener();
+        boolean t = mSensorManager.registerListener(r, rotationSensor, SensorManager.SENSOR_STATUS_ACCURACY_LOW);
     }
 
     @Override
@@ -330,7 +338,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         @Override
         public void onSensorChanged(SensorEvent se){
-            Log.v(TAG, "rotation sensor!");
+            //Log.v(TAG, "rotation sensor!");
             if(se.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
                 float[] mRotationMatrix = new float[16];
                 SensorManager.getRotationMatrixFromVector(

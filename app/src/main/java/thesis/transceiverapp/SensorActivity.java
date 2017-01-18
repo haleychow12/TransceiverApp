@@ -61,21 +61,21 @@ public class SensorActivity extends  FragmentActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_sensor);
 
-        Intent intent = getIntent();
+        /*Intent intent = getIntent();
         mArrow = intent.getIntExtra("arrow", -1);
         mDistEst = intent.getDoubleExtra("distEst", 0);
 
         mDistText = (TextView) findViewById(R.id.textView4);
         mArrowImage = (ImageView) findViewById(R.id.imageView);
         mDistText.setText(String.format("Distance Estimate: %.3fm", mDistEst));
-        mArrowImage.setRotation(mDegrees[mArrow]);
+        mArrowImage.setRotation(mDegrees[mArrow]);*/
 
 
 
         mSensorManager = (SensorManager) this.getSystemService(SENSOR_SERVICE);
 
-        accelSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        rotationSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+        accelSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
+        rotationSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         gyroSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         magneticSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
 
