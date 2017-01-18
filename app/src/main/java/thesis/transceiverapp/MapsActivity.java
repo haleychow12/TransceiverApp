@@ -133,7 +133,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         initCamera(new LatLng(lat,lng));
 
         //Thread with simulated info from Avalanche Transceiver
-        /*new Thread (new Runnable() {
+        new Thread (new Runnable() {
             boolean firstTime = true;
             int arrow;
             double distEstimate;
@@ -171,7 +171,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             }
                         }
                     }
-                    String s = "Dist: " + Double.toString(distEstimate) + " " + dir[arrow];
+                    //String s = "Dist: " + Double.toString(distEstimate) + " " + dir[arrow];
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
@@ -179,11 +179,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             mdistView.setText(String.format("Dist: %.2fm", distEstimate));
                         }
                     });
-                    Log.d(TAG, s);
+                    //Log.d(TAG, s);
                     SystemClock.sleep(1000);
                 }
             }
-        }).start();*/
+        }).start();
 
         /*mMapFragment = (SupportMapFragment) (getSupportFragmentManager()
                 .findFragmentById(R.id.map));
