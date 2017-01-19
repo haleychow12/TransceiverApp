@@ -10,6 +10,7 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.location.Location;
+import android.location.LocationManager;
 import android.os.Message;
 import android.os.SystemClock;
 import android.support.annotation.NonNull;
@@ -23,7 +24,6 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.graphics.Matrix;
 import android.widget.ImageView;
 
 import com.google.android.gms.common.ConnectionResult;
@@ -53,8 +53,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private LocationRequest mLocationRequest;
     private TextView maccuracyView;
     private TextView mdistView;
+    private Button mButton;
+    private boolean mThreadReset = false;
     private ArrayList<LatLng> mPoints; //added
     Polyline line; //added
+    private Location mCurrentLoc;
 
     private SensorManager mSensorManager;
     private SensorEventListener r;
@@ -67,7 +70,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private SupportMapFragment mMapFragment;
 
     private final static double ACCURACY_THRESHOLD = 20; //accuracy threshold in meters
-    private float[] mDegrees = {-90, -45, 0, 45, 90};
     private ImageView mArrowImage;
 
     @Override
@@ -97,14 +99,22 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mdistView = (TextView) findViewById(R.id.distView);
         mArrowImage = (ImageView) findViewById(R.id.arrow);
         maccuracyView = (TextView) findViewById(R.id.accuracyView);
-        maccuracyView.setOnClickListener(new View.OnClickListener() {
+        mButton = (Button) findViewById(R.id.button2);
+
+        mButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mThreadReset = true;
+            }
+        });
+        /*maccuracyView.setOnClickListener(new View.OnClickListener() {
 
             @Override
             public void onClick(View v) {
                 Intent i = new Intent(getBaseContext(), SensorActivity.class);
                 startActivity(i);
             }
-        });
+        });*/
 
 
         mSensorManager = (SensorManager) this.getSystemService(SENSOR_SERVICE);
@@ -142,52 +152,38 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         //Thread with simulated info from Avalanche Transceiver
         new Thread (new Runnable() {
-            boolean firstTime = true;
-            int arrow;
+            Location newLoc;
+            float arrow;
             double distEstimate;
             public void run(){
                 while(mGoogleApiClient.isConnected()){
-                    if(firstTime){
-                        firstTime = false;
-                        arrow = randInt(5);
-                        distEstimate = 10*Math.random();
-                    }
-                    else {
-                        //arrows are represented by a number between 0-4
-                        int x = randInt(3);
-                        if (x == 0){
-                            arrow = (arrow + 1) % 5;
+                    if(mThreadReset){
+                        mThreadReset = false;
+                        //create new location
+                        newLoc = getRandomNewLocation(mCurrentLoc);
 
-                        }
-                        else if (x == 1){
-                            arrow = Math.abs((arrow - 1) % 5);
-                        }
-                        //else, don't change arrow
-                        //distance estimates are represented by a number between 0-9.9
-                        int y = randInt(3);
-                        if (x == 0){
-                            distEstimate += .1;
-                            if (distEstimate >= 10){
-                                distEstimate = 9.99;
-                            }
-
-                        }
-                        else if (x == 1){
-                            distEstimate -= .1;
-                            if (distEstimate < 1){
-                                distEstimate = 1;
-                            }
-                        }
                     }
-                    //String s = "Dist: " + Double.toString(distEstimate) + " " + dir[arrow];
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            mArrowImage.setRotation(mDegrees[arrow]);
-                            mdistView.setText(String.format("Dist: %.2fm", distEstimate));
-                        }
-                    });
-                    //Log.d(TAG, s);
+                    if (newLoc != null) {
+                        //set arrow picture rotation
+                        arrow = mCurrentLoc.bearingTo(newLoc) % 360;
+                        Log.v(TAG,Double.toString(arrow));
+
+                        distEstimate = mCurrentLoc.distanceTo(newLoc);
+                        //String s = "Dist: " + Double.toString(distEstimate) + " " + dir[arrow];
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                setTopBarVariables(arrow, distEstimate);
+                                MarkerOptions markOptions = new MarkerOptions()
+                                        .position(new LatLng(newLoc.getLatitude(), newLoc.getLongitude()))
+                                        .title("New one to find!");
+                                mMap.addMarker(markOptions);
+                            }
+                        });
+
+                    }
+
+                    //Log.d(TAG, s);*/
                     SystemClock.sleep(1000);
                 }
             }
@@ -199,6 +195,34 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         params.height = 900;
         mMapFragment.getView().setLayoutParams(params);*/
     }
+    private void setTopBarVariables(float arrow, double distEstimate){
+        mArrowImage.setRotation(arrow);
+        mdistView.setText(String.format("Dist: %.2fm", distEstimate));
+    }
+
+    private Location getRandomNewLocation(Location here){
+        double d = (Math.random()*30 + ACCURACY_THRESHOLD)/1000; //rand # range [.01,.04 km]
+        double brng = Math.toRadians(randInt(360));
+
+        double R = 6378.1; //radius of Earth
+
+        double lat1 = Math.toRadians(here.getLatitude());
+        double lon1 = Math.toRadians(here.getLongitude());
+
+        double lat2 = Math.asin(Math.sin(lat1)*Math.cos(d/R) +
+                Math.cos(lat1)*Math.sin(d/R)*Math.cos(brng));
+
+        double lon2 = lon1 + Math.atan2(Math.sin(brng)* Math.sin(d/R)*Math.cos(lat1),
+                Math.cos(d/R)- Math.sin(lat1)*Math.sin(lat2));
+
+        lat2 = Math.toDegrees(lat2);
+        lon2 = Math.toDegrees(lon2);
+
+        Location there = new Location(LocationManager.GPS_PROVIDER);
+        there.setLatitude(lat2);
+        there.setLongitude(lon2);
+        return there;
+    }
 
 
     private void redrawLine(LatLng lat) {
@@ -209,8 +233,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             options.add(point);
         }
         MarkerOptions markOptions = new MarkerOptions().position(lat).title("This is me!");
-        //String s = Double.toString(lat.latitude) + " " + Double.toString(lat.longitude);
-        //Toast.makeText(this, s, Toast.LENGTH_SHORT).show();
         mMap.addMarker(markOptions);
         line = mMap.addPolyline(options); //add Polyline
     }
@@ -300,6 +322,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             mPoints.add(latLng);
             redrawLine(latLng);
             updateCameraLocation(latLng);
+            mCurrentLoc = location;
         }
 
         return latLng;
