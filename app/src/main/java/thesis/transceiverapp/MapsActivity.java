@@ -71,6 +71,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private final static double ACCURACY_THRESHOLD = 20; //accuracy threshold in meters
     private ImageView mArrowImage;
+    private float mAngle = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -196,7 +197,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMapFragment.getView().setLayoutParams(params);*/
     }
     private void setTopBarVariables(float arrow, double distEstimate){
-        mArrowImage.setRotation(arrow);
+        mArrowImage.setRotation(arrow - mAngle);
         mdistView.setText(String.format("Dist: %.2fm", distEstimate));
     }
 
@@ -229,6 +230,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.clear();
         PolylineOptions options = new PolylineOptions().width(5).color(Color.BLUE).geodesic(true);
         for (int i = 0; i < mPoints.size(); i++) {
+            //adjust based on distance
             LatLng point = mPoints.get(i);
             options.add(point);
         }
@@ -372,7 +374,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     float bearing = (float) Math.toDegrees(orientation[0]) + mDeclination;
                     updateCameraBearing(bearing);
                 }
-                angle = Math.toDegrees(orientation[0]);
+                angle = Math.toDegrees(orientation[0]); //0 is north
+                mAngle = (float) angle;
+                //Log.v(TAG, "Angle: " + Double.toString(angle));
             }
         }
     }
