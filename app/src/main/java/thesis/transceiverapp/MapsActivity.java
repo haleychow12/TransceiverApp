@@ -63,6 +63,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private SensorEventListener r;
     private Sensor rotationSensor;
     private float mDeclination;
+    private int penColor = Color.RED;
 
 
     public static final String TAG = MapsActivity.class.getSimpleName();
@@ -168,6 +169,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         //set arrow picture rotation
                         arrow = mCurrentLoc.bearingTo(newLoc) % 360;
                         Log.v(TAG,Double.toString(arrow));
+                        if (distEstimate < 15){
+                            penColor = Color.YELLOW;
+                        }
+                        if (distEstimate < 5){
+                            penColor = Color.GREEN;
+                        }
 
                         distEstimate = mCurrentLoc.distanceTo(newLoc);
                         //String s = "Dist: " + Double.toString(distEstimate) + " " + dir[arrow];
@@ -228,7 +235,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private void redrawLine(LatLng lat) {
         mMap.clear();
-        PolylineOptions options = new PolylineOptions().width(5).color(Color.BLUE).geodesic(true);
+        PolylineOptions options = new PolylineOptions().width(5).color(penColor).geodesic(true);
         for (int i = 0; i < mPoints.size(); i++) {
             //adjust based on distance
             LatLng point = mPoints.get(i);
