@@ -56,6 +56,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private Button mButton;
     private boolean mThreadReset = false;
     private ArrayList<LatLng> mPoints; //added
+    private ArrayList<Vector> mVectors;
     Polyline line; //added
     private Location mCurrentLoc;
 
@@ -70,9 +71,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private final static int CONNECTION_FAILURE_RESOLUTION_REQUEST = 9000;
     private SupportMapFragment mMapFragment;
 
-    private final static double ACCURACY_THRESHOLD = 20; //accuracy threshold in meters
+    private final static double ACCURACY_THRESHOLD = 12; //accuracy threshold in meters
     private ImageView mArrowImage;
     private float mAngle = 0;
+    private double currDistance = 0;
+    private float currAngle = 0;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,6 +95,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .build();
 
         mPoints = new ArrayList<LatLng>();
+        mVectors = new ArrayList<Vector>();
         // Create the LocationRequest object
 
         mLocationRequest = LocationRequest.create()
@@ -123,7 +128,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         rotationSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
 
         r = new MapsActivity.RotationSensorEventListener();
-        boolean t = mSensorManager.registerListener(r, rotationSensor, SensorManager.SENSOR_STATUS_ACCURACY_LOW);
+        //boolean t = mSensorManager.registerListener(r, rotationSensor, SensorManager.SENSOR_STATUS_ACCURACY_LOW);
     }
 
     @Override
@@ -175,6 +180,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         if (distEstimate < 5){
                             penColor = Color.GREEN;
                         }
+                        if (distEstimate > 15){
+                            penColor = Color.RED;
+                        }
 
                         distEstimate = mCurrentLoc.distanceTo(newLoc);
                         //String s = "Dist: " + Double.toString(distEstimate) + " " + dir[arrow];
@@ -204,6 +212,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMapFragment.getView().setLayoutParams(params);*/
     }
     private void setTopBarVariables(float arrow, double distEstimate){
+        currAngle = arrow;
+        currDistance = distEstimate;
         mArrowImage.setRotation(arrow - mAngle);
         mdistView.setText(String.format("Dist: %.2fm", distEstimate));
     }
@@ -292,6 +302,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             mGoogleApiClient.disconnect();
         }
         mSensorManager.unregisterListener(r);
+        mPoints.clear();
+        mVectors.clear();
         super.onPause();
     }
 
@@ -329,6 +341,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         //if accuracy < 15 meters redraw line and update camera
         if(accuracyMeters < ACCURACY_THRESHOLD) {
             mPoints.add(latLng);
+            mVectors.add(new Vector(currAngle, currDistance, latLng));
             redrawLine(latLng);
             updateCameraLocation(latLng);
             mCurrentLoc = location;
