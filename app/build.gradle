@@ -34,4 +34,5 @@ dependencies {
     compile 'com.android.support:multidex:1.0.0'
     compile 'com.google.android.gms:play-services-maps:9.8.0'
     compile files('/Users/hcc999/AndroidStudioProjects/TransceiverApp/.idea/libraries/usbserial.jar')
+    compile files('libs/usbserial.jar')
 }
