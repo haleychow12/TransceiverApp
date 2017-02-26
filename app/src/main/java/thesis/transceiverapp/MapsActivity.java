@@ -18,6 +18,7 @@ import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
 import android.location.Location;
 import android.location.LocationManager;
+import android.os.Handler;
 import android.os.Message;
 import android.os.SystemClock;
 import android.support.annotation.NonNull;
@@ -92,19 +93,71 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     public final String ACTION_USB_PERMISSION = "com.hariharan.arduinousb.USB_PERMISSION";
     private int mBaudRate = 115200;
+    private boolean mSerialPortConnected;
     private Button mStartButton, mStopButton;
     UsbManager usbManager;
     UsbDevice device;
     UsbSerialDevice serialPort;
     UsbDeviceConnection connection;
 
+    final static int DIRECTION_DATA = 123;
+    final static int DISTANCE_DATA = 456;
+
+    private double mTransceiverDistance = -1;
+    private float mTransceiverDirection = -1;
+
+
+    Handler mHandler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            float dir;
+            double dist;
+            switch (msg.what) {
+                case DIRECTION_DATA:
+                    dir = ((Float)msg.obj).floatValue();
+                    String temp =Float.toString(dir);
+                    //.setText(temp);
+                    break;
+                case DISTANCE_DATA:
+                    dist = ((Double)msg.obj).doubleValue();
+                    mdistView.setText(String.format("Dist: %.2fm", dist));
+                    break;
+            }
+        }
+    };
+
     UsbSerialInterface.UsbReadCallback mCallback = new UsbSerialInterface.UsbReadCallback() { //Defining a Callback which triggers whenever data is read.
         @Override
         public void onReceivedData(byte[] arg0) {
             String data = null;
+            final String x;
             try {
                 data = new String(arg0, "UTF-8");
                 data.concat("/n");
+                /*x = data;
+
+                if (data != null) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mdistView.setText(x);
+                        }
+                    });
+
+                }*/
+                if (data != null){
+                    String[] parts = data.split(",");
+                    //check if the data is good
+                    if (parts.length > 2 && parts[0] == "A") {
+                        //change from centidegrees to degrees
+                        mTransceiverDirection = Integer.parseInt(parts[1]);
+                        mTransceiverDirection /= 100.0;
+
+                        //centimeters to meters
+                        mTransceiverDistance = Integer.parseInt(parts[2]);
+                    }
+                }
+
                 //tvAppend(textView, data);
             } catch (UnsupportedEncodingException e) {
                 e.printStackTrace();
@@ -124,6 +177,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     if (serialPort != null) {
                         if (serialPort.open()) { //Set Serial Connection Parameters.
                             //setUiEnabled(true);
+                            mSerialPortConnected = true;
                             serialPort.setBaudRate(mBaudRate);
                             serialPort.setDataBits(UsbSerialInterface.DATA_BITS_8);
                             serialPort.setStopBits(UsbSerialInterface.STOP_BITS_1);
@@ -144,7 +198,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             } else if (intent.getAction().equals(UsbManager.ACTION_USB_DEVICE_ATTACHED)) {
                 onClickStart(mStartButton);
             } else if (intent.getAction().equals(UsbManager.ACTION_USB_DEVICE_DETACHED)) {
-                onClickStop(mStopButton);
+                serialPort.close();
+                mSerialPortConnected = false;
+                unregisterReceiver(broadcastReceiver);
 
             }
         }
@@ -188,15 +244,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 mThreadReset = true;
             }
         });
-        /*maccuracyView.setOnClickListener(new View.OnClickListener() {
-
-            @Override
-            public void onClick(View v) {
-                Intent i = new Intent(getBaseContext(), SensorActivity.class);
-                startActivity(i);
-            }
-        });*/
-
 
         mSensorManager = (SensorManager) this.getSystemService(SENSOR_SERVICE);
         rotationSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
@@ -207,8 +254,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         usbManager = (UsbManager) getSystemService(this.USB_SERVICE);
 
         mStartButton = (Button) findViewById(R.id.startButton);
-        mStopButton = (Button) findViewById(R.id.stopButton);
-        //setUiEnabled(false);
+        mSerialPortConnected = false;
+
         IntentFilter filter = new IntentFilter();
         filter.addAction(ACTION_USB_PERMISSION);
         filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
@@ -224,11 +271,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             for (Map.Entry<String, UsbDevice> entry : usbDevices.entrySet()) {
                 device = entry.getValue();
                 int deviceVID = device.getVendorId();
-                Toast.makeText(this, "vendorID: " + Integer.toHexString(deviceVID), Toast.LENGTH_SHORT).show();
-                //Log.v(TAG, "Vendor id: " + Integer.toHexString(deviceVID));
+                //Toast.makeText(this, "vendorID: " + Integer.toHexString(deviceVID), Toast.LENGTH_SHORT).show();
                 if (deviceVID == 0x2341)//Arduino Vendor ID
-                //if (deviceVID == 0x04e8) //Samsung Tab VID
-                //if (deviceVID == 0x18d1) //Nexus Tab VID <- won't communicate with one another serially
                 {
                     PendingIntent pi = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
                     usbManager.requestPermission(device, pi);
@@ -242,17 +286,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     break;
             }
         }
-        //Log.v(TAG,"no usb device");
         Toast.makeText(this, "no usb device", Toast.LENGTH_SHORT).show();
 
     }
 
-    public void onClickStop(View view) {
-        //setUiEnabled(false);
-        serialPort.close();
-        //tvAppend(textView,"\nSerial Connection Closed! \n");
 
-    }
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
@@ -321,17 +359,24 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                     }
 
-                    //Log.d(TAG, s);*/
+                    else{
+                        /*Message m = Message.obtain(mHandler, DIRECTION_DATA);
+                        m.obj = Float.valueOf(mTransceiverDirection);
+                        mHandler.sendMessage(m);*/
+
+                        Message m = Message.obtain(mHandler, DISTANCE_DATA);
+                        m.obj = Double.valueOf(mTransceiverDistance);
+                        mHandler.sendMessage(m);
+
+                        Log.v(TAG,"done");
+
+                    }
+
                     SystemClock.sleep(1000);
                 }
             }
         }).start();
 
-        /*mMapFragment = (SupportMapFragment) (getSupportFragmentManager()
-                .findFragmentById(R.id.map));
-        ViewGroup.LayoutParams params = mMapFragment.getView().getLayoutParams();
-        params.height = 900;
-        mMapFragment.getView().setLayoutParams(params);*/
     }
     private void setTopBarVariables(float arrow, double distEstimate){
         currAngle = arrow;
@@ -388,10 +433,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.animateCamera(CameraUpdateFactory
                 .newCameraPosition(position), null);
         Log.v(TAG, "set up Camera");
-        //mMap.setMapType(GoogleMap.MAP_TYPE_NORMAL);
-        //mMap.getUiSettings().setZoomControlsEnabled(true);
-
     }
+
     @Override
     public void onConnectionSuspended(int i) {
         Log.i(TAG, "Location Services Suspended, please reconnect");
@@ -426,6 +469,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mSensorManager.unregisterListener(r);
         mPoints.clear();
         mVectors.clear();
+        if (mSerialPortConnected) {
+            serialPort.close();
+            mSerialPortConnected = false;
+        }
+        unregisterReceiver(broadcastReceiver);
         super.onPause();
     }
 
@@ -472,6 +520,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         return latLng;
 
     }
+
     private void updateCameraBearing(float bearing) {
         if (mMap == null) return;
 
@@ -499,7 +548,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     class RotationSensorEventListener implements SensorEventListener{
-        private double angle;
+        private double rAngle;
         @Override
         public void onAccuracyChanged(Sensor s, int i){}
 
@@ -512,13 +561,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         mRotationMatrix , se.values);
                 float[] orientation = new float[3];
                 SensorManager.getOrientation(mRotationMatrix, orientation);
-                if (Math.abs(Math.toDegrees(orientation[0]) - angle) > 0.8) {
+                if (Math.abs(Math.toDegrees(orientation[0]) - rAngle) > 0.8) {
                     float bearing = (float) Math.toDegrees(orientation[0]) + mDeclination;
                     updateCameraBearing(bearing);
                 }
-                angle = Math.toDegrees(orientation[0]); //0 is north
-                mAngle = (float) angle;
-                //Log.v(TAG, "Angle: " + Double.toString(angle));
+                rAngle = Math.toDegrees(orientation[0]); //0 is north
+                mAngle = (float) rAngle;
             }
         }
     }
