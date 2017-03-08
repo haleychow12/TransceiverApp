@@ -106,6 +106,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private double mTransceiverDistance = -1;
     private float mTransceiverDirection = -1;
 
+    private int counter;
 
     Handler mHandler = new Handler() {
         @Override
@@ -121,6 +122,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 case DISTANCE_DATA:
                     dist = ((Double)msg.obj).doubleValue();
                     mdistView.setText(String.format("Dist: %.2fm", dist));
+                    //Log.v(TAG, "Check");
+                    //Toast.makeText(MapsActivity.this, String.format("Dist: %2fm", mTransceiverDistance), Toast.LENGTH_SHORT).show();
                     break;
             }
         }
@@ -130,31 +133,22 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         @Override
         public void onReceivedData(byte[] arg0) {
             String data = null;
-            final String x;
+            final String test;
             try {
                 data = new String(arg0, "UTF-8");
                 data.concat("/n");
-                /*x = data;
 
-                if (data != null) {
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            mdistView.setText(x);
-                        }
-                    });
-
-                }*/
                 if (data != null){
                     String[] parts = data.split(",");
                     //check if the data is good
-                    if (parts.length > 2 && parts[0] == "A") {
+                    if (parts[0].equals("A") && parts.length > 2) {
                         //change from centidegrees to degrees
                         mTransceiverDirection = Integer.parseInt(parts[1]);
                         mTransceiverDirection /= 100.0;
 
                         //centimeters to meters
-                        mTransceiverDistance = Integer.parseInt(parts[2]);
+                        mTransceiverDistance = Integer.parseInt(parts[2]) / 100.0;
+                        //Toast.makeText(MapsActivity.this, "TESSSTT", Toast.LENGTH_SHORT).show();
                     }
                 }
 
@@ -345,7 +339,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         }
 
                         distEstimate = mCurrentLoc.distanceTo(newLoc);
-                        //String s = "Dist: " + Double.toString(distEstimate) + " " + dir[arrow];
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
@@ -370,9 +363,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                         Log.v(TAG,"done");
 
+                        //TODO do the calculation and simulation here
+
                     }
 
-                    SystemClock.sleep(1000);
+                    SystemClock.sleep(2000);
                 }
             }
         }).start();
