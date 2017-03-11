@@ -69,10 +69,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private static final int CONNECTION_FAILURE_RESOLUTION_REQUEST = 9000;
     private ArrayList<LatLng> mPoints; //list of points where the user has stepped
     Polyline line; //line that indicates where the user is
-    private int penColor = Color.RED;
+    private int penColor = Color.BLUE;
 
     private TextView maccuracyView; //GPS accuracy text view
-    private final static double ACCURACY_THRESHOLD = 12; // GPS accuracy threshold in meters
+    private final static double ACCURACY_THRESHOLD = 8; // GPS accuracy threshold in meters
     private TextView mdistView; //Distance from the transceiver text view
     private Button mButton; //God mode button
     private boolean mThreadReset = false; //boolean that resets the "God mode" thread
@@ -289,6 +289,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
 
+        //sets default camera location to Princeton
         mMap.moveCamera(CameraUpdateFactory.newCameraPosition(PRINCETON));
     }
 
@@ -310,7 +311,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         mMap.getUiSettings().setCompassEnabled(true);
 
-        //Thread with simulated info and real info from Avalanche Transceiver
+        //Thread with simulated and real info from Avalanche Transceiver
         new Thread (new Runnable() {
             Location newLoc;
             float arrow;
@@ -326,15 +327,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         //set arrow picture rotation
                         arrow = mCurrentLoc.bearingTo(newLoc) % 360;
                         Log.v(TAG,Double.toString(arrow));
-                        if (distEstimate < 15){
-                            penColor = Color.YELLOW;
-                        }
-                        if (distEstimate < 5){
-                            penColor = Color.GREEN;
-                        }
-                        if (distEstimate > 15){
-                            penColor = Color.RED;
-                        }
+
 
                         distEstimate = mCurrentLoc.distanceTo(newLoc);
                         runOnUiThread(new Runnable() {
@@ -350,7 +343,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                     }
 
+                    //set color of the pen
+                    if (currDistance > 0 && currDistance < 5){
+                        penColor = Color.GREEN;
+                    }
+
+                    else if (currDistance > 0 && currDistance < 15){
+                        penColor = Color.YELLOW;
+                    }
+
+                    else if (currDistance > 0 && currDistance > 15){
+                        penColor = Color.RED;
+                    }
+
                     else{
+                        //No "God mode," values are from avalanche transceiver
                         Message m = Message.obtain(mHandler, DIRECTION_DATA);
                         m.obj = Float.valueOf(mTransceiverDirection);
                         mHandler.sendMessage(m);
@@ -468,6 +475,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         super.onPause();
     }
 
+    /*adjusts the magnetic field and calls the new location handler*/
     @Override
     public void onLocationChanged(Location location) {
         handleNewLocation(location);
@@ -483,11 +491,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     }
 
+    /*formats the input float accuracy into a string that can be displayed*/
     private String formatAccuracy(Float accuracy) {
         String accuracyViewString = String.format("Accuracy: %.2fm", accuracy);
         return accuracyViewString;
     }
 
+    /*new location handler that checks the GPS accuracy and if it is below the
+    threshold, creates a new point and redraws the polygon. Returns a latlng
+    with the current location*/
     private LatLng handleNewLocation(Location location) {
         Log.d(TAG, location.toString());
         //Log.d(TAG, Float.toString(location.getBearing()));
@@ -512,6 +524,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     }
 
+    /*updates the camera's bearing based on the float bearing*/
     private void updateCameraBearing(float bearing) {
         if (mMap == null) return;
 
@@ -522,6 +535,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.moveCamera(CameraUpdateFactory.newCameraPosition(pos));
     }
 
+    /*updates and centers the camera on latLng*/
     private void updateCameraLocation(LatLng latLng) {
         if (mMap == null) return;
 
@@ -534,6 +548,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     }
 
+    /*returns a random integer between 0 and max*/
     private int randInt(int max){
         return (int)(Math.random()*max);
     }
@@ -545,7 +560,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         @Override
         public void onSensorChanged(SensorEvent se){
-            //Log.v(TAG, "rotation sensor!");
             if(se.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
                 float[] mRotationMatrix = new float[16];
                 SensorManager.getRotationMatrixFromVector(
