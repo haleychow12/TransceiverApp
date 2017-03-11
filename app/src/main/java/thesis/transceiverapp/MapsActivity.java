@@ -65,49 +65,58 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private GoogleMap mMap;
     private GoogleApiClient mGoogleApiClient;
     private LocationRequest mLocationRequest;
-    private TextView maccuracyView;
-    private TextView mdistView;
-    private Button mButton;
-    private boolean mThreadReset = false;
-    private ArrayList<LatLng> mPoints; //added
-    private ArrayList<Vector> mVectors;
-    Polyline line; //added
-    private Location mCurrentLoc;
+    public static final String TAG = MapsActivity.class.getSimpleName();
+    private static final int CONNECTION_FAILURE_RESOLUTION_REQUEST = 9000;
+    private ArrayList<LatLng> mPoints; //list of points where the user has stepped
+    Polyline line; //line that indicates where the user is
+    private int penColor = Color.RED;
+
+    private TextView maccuracyView; //GPS accuracy text view
+    private final static double ACCURACY_THRESHOLD = 12; // GPS accuracy threshold in meters
+    private TextView mdistView; //Distance from the transceiver text view
+    private Button mButton; //God mode button
+    private boolean mThreadReset = false; //boolean that resets the "God mode" thread
+
+
+    private ArrayList<Vector> mVectors; //array list of vectors
+
+    private Location mCurrentLoc; //current location
 
     private SensorManager mSensorManager;
     private SensorEventListener r;
     private Sensor rotationSensor;
     private float mDeclination;
-    private int penColor = Color.RED;
 
-
-    public static final String TAG = MapsActivity.class.getSimpleName();
-    private final static int CONNECTION_FAILURE_RESOLUTION_REQUEST = 9000;
-    private SupportMapFragment mMapFragment;
-
-    private final static double ACCURACY_THRESHOLD = 12; //accuracy threshold in meters
+    //private SupportMapFragment mMapFragment;
     private ImageView mArrowImage;
-    private float mAngle = 0;
-    private double currDistance = 0;
-    private float currAngle = 0;
+    private float mAngle = 0; //current angle of rotation the android tablet is at
+    private double currDistance = 0; //current Distance to a transceiver
+    private float currAngle = 0; //current angle the arrow is rotated at
 
     public final String ACTION_USB_PERMISSION = "com.hariharan.arduinousb.USB_PERMISSION";
-    private int mBaudRate = 115200;
+    private IntentFilter filter;
+    private int mBaudRate = 115200; //baud rate of the serial device
     private boolean mSerialPortConnected;
-    private Button mStartButton, mStopButton;
+    private Button mStartButton;
     UsbManager usbManager;
     UsbDevice device;
     UsbSerialDevice serialPort;
     UsbDeviceConnection connection;
 
-    final static int DIRECTION_DATA = 123;
-    final static int DISTANCE_DATA = 456;
+    final static int DIRECTION_DATA = 123; //unique int that identifies Direction data to the handler
+    final static int DISTANCE_DATA = 456; //unique int that identifies Distance data to the handler
 
-    private double mTransceiverDistance = -1;
-    private float mTransceiverDirection = -1;
+    private double mTransceiverDistance = -1; //double that holds transceiver Distance in meters
+    private float mTransceiverDirection = -1; //float that holds transceiver direction in degrees
 
-    private int counter;
+    //default camera position
+    public static final CameraPosition PRINCETON =
+            new CameraPosition.Builder().target(new LatLng(40.34780, -74.65316))
+                    .zoom(15f)
+                    .bearing(0)
+                    .build();
 
+    /*thread handler that takes the msg and translates it to distance or direction data*/
     Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
@@ -116,24 +125,26 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             switch (msg.what) {
                 case DIRECTION_DATA:
                     dir = ((Float)msg.obj).floatValue();
-                    String temp =Float.toString(dir);
-                    //.setText(temp);
+                    if (dir < 360){
+                        mArrowImage.setRotation(dir - mAngle);
+                        currAngle = dir;
+                    }
                     break;
                 case DISTANCE_DATA:
                     dist = ((Double)msg.obj).doubleValue();
                     mdistView.setText(String.format("Dist: %.2fm", dist));
+                    currDistance = dist;
                     //Log.v(TAG, "Check");
                     //Toast.makeText(MapsActivity.this, String.format("Dist: %2fm", mTransceiverDistance), Toast.LENGTH_SHORT).show();
                     break;
             }
         }
     };
-
-    UsbSerialInterface.UsbReadCallback mCallback = new UsbSerialInterface.UsbReadCallback() { //Defining a Callback which triggers whenever data is read.
+    /*Defining a Callback which triggers whenever data is read.*/
+    UsbSerialInterface.UsbReadCallback mCallback = new UsbSerialInterface.UsbReadCallback() {
         @Override
         public void onReceivedData(byte[] arg0) {
             String data = null;
-            final String test;
             try {
                 data = new String(arg0, "UTF-8");
                 data.concat("/n");
@@ -148,19 +159,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                         //centimeters to meters
                         mTransceiverDistance = Integer.parseInt(parts[2]) / 100.0;
-                        //Toast.makeText(MapsActivity.this, "TESSSTT", Toast.LENGTH_SHORT).show();
                     }
                 }
-
-                //tvAppend(textView, data);
             } catch (UnsupportedEncodingException e) {
                 e.printStackTrace();
             }
-
-
         }
     };
-    private final BroadcastReceiver broadcastReceiver = new BroadcastReceiver() { //Broadcast Receiver to automatically start and stop the Serial connection.
+
+    /*Broadcast Receiver to automatically start and stop the Serial connection.*/
+    private final BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (intent.getAction().equals(ACTION_USB_PERMISSION)) {
@@ -170,7 +178,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     serialPort = UsbSerialDevice.createUsbSerialDevice(device, connection);
                     if (serialPort != null) {
                         if (serialPort.open()) { //Set Serial Connection Parameters.
-                            //setUiEnabled(true);
                             mSerialPortConnected = true;
                             serialPort.setBaudRate(mBaudRate);
                             serialPort.setDataBits(UsbSerialInterface.DATA_BITS_8);
@@ -178,8 +185,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             serialPort.setParity(UsbSerialInterface.PARITY_NONE);
                             serialPort.setFlowControl(UsbSerialInterface.FLOW_CONTROL_OFF);
                             serialPort.read(mCallback);
-                            //tvAppend(textView,"Serial Connection Opened!\n");
-
                         } else {
                             Log.d("SERIAL", "PORT NOT OPEN");
                         }
@@ -198,9 +203,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
             }
         }
-
     };
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -212,6 +215,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
+
+        // Create the LocationRequest object
+        mLocationRequest = LocationRequest.create()
+                .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
+                .setInterval(1000)        // 10 seconds, in milliseconds (interval betw active location updates)
+                .setFastestInterval(1000); // 1 second, in milliseconds
+
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .addConnectionCallbacks(this)
                 .addOnConnectionFailedListener(this)
@@ -220,12 +230,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         mPoints = new ArrayList<LatLng>();
         mVectors = new ArrayList<Vector>();
-        // Create the LocationRequest object
 
-        mLocationRequest = LocationRequest.create()
-                .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
-                .setInterval(1000)        // 10 seconds, in milliseconds (interval betw active location updates)
-                .setFastestInterval(1000); // 1 second, in milliseconds
 
         mdistView = (TextView) findViewById(R.id.distView);
         mArrowImage = (ImageView) findViewById(R.id.arrow);
@@ -241,22 +246,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         mSensorManager = (SensorManager) this.getSystemService(SENSOR_SERVICE);
         rotationSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
-
         r = new MapsActivity.RotationSensorEventListener();
-        //boolean t = mSensorManager.registerListener(r, rotationSensor, SensorManager.SENSOR_STATUS_ACCURACY_LOW);
 
         usbManager = (UsbManager) getSystemService(this.USB_SERVICE);
-
         mStartButton = (Button) findViewById(R.id.startButton);
         mSerialPortConnected = false;
 
-        IntentFilter filter = new IntentFilter();
+        filter = new IntentFilter();
         filter.addAction(ACTION_USB_PERMISSION);
         filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
         filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
         registerReceiver(broadcastReceiver, filter);
     }
 
+    /* Behavior after clicking the start button. Connects the USB Serial Port
+    with an Arduino device and begins Serial communication*/
     public void onClickStart(View view) {
 
         HashMap<String, UsbDevice> usbDevices = usbManager.getDeviceList();
@@ -265,7 +269,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             for (Map.Entry<String, UsbDevice> entry : usbDevices.entrySet()) {
                 device = entry.getValue();
                 int deviceVID = device.getVendorId();
-                //Toast.makeText(this, "vendorID: " + Integer.toHexString(deviceVID), Toast.LENGTH_SHORT).show();
                 if (deviceVID == 0x2341)//Arduino Vendor ID
                 {
                     PendingIntent pi = PendingIntent.getBroadcast(this, 0, new Intent(ACTION_USB_PERMISSION), 0);
@@ -275,43 +278,39 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     connection = null;
                     device = null;
                 }
-
                 if (!keep)
                     break;
             }
         }
         Toast.makeText(this, "no usb device", Toast.LENGTH_SHORT).show();
-
     }
-
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
 
+        mMap.moveCamera(CameraUpdateFactory.newCameraPosition(PRINCETON));
     }
 
     @Override
     public void onConnected(@Nullable Bundle bundle) {
         Log.i(TAG, "Location Services Connected");
-        LatLng start = null;
+
         //check permissions
-        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this,
+                android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
-
-        Location location = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+        //mCurrentLoc = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
         Log.v(TAG, "setting up locationListener");
 
         LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient,
                 mLocationRequest, this);
 
         mMap.getUiSettings().setCompassEnabled(true);
-        double lat = location.getLatitude();
-        double lng = location.getLongitude();
-        initCamera(new LatLng(lat,lng));
 
-        //Thread with simulated info from Avalanche Transceiver
+        //Thread with simulated info and real info from Avalanche Transceiver
         new Thread (new Runnable() {
             Location newLoc;
             float arrow;
@@ -322,7 +321,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         mThreadReset = false;
                         //create new location
                         newLoc = getRandomNewLocation(mCurrentLoc);
-
                     }
                     if (newLoc != null) {
                         //set arrow picture rotation
@@ -353,11 +351,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     }
 
                     else{
-                        /*Message m = Message.obtain(mHandler, DIRECTION_DATA);
+                        Message m = Message.obtain(mHandler, DIRECTION_DATA);
                         m.obj = Float.valueOf(mTransceiverDirection);
-                        mHandler.sendMessage(m);*/
+                        mHandler.sendMessage(m);
 
-                        Message m = Message.obtain(mHandler, DISTANCE_DATA);
+                        m = Message.obtain(mHandler, DISTANCE_DATA);
                         m.obj = Double.valueOf(mTransceiverDistance);
                         mHandler.sendMessage(m);
 
@@ -373,6 +371,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }).start();
 
     }
+    /*used in "God mode" to set the variables on the top bar to simulated
+    transceiver values. Arrow is the direction to the transceiver in degrees,
+    distEstimate is the estimated location in meters.*/
     private void setTopBarVariables(float arrow, double distEstimate){
         currAngle = arrow;
         currDistance = distEstimate;
@@ -380,6 +381,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mdistView.setText(String.format("Dist: %.2fm", distEstimate));
     }
 
+    /*uses the location here as reference and returns a random location that is
+    within [AccuracyThreshold, AccuracyThreshold + 30] meters from location here*/
     private Location getRandomNewLocation(Location here){
         double d = (Math.random()*30 + ACCURACY_THRESHOLD)/1000; //rand # range [.01,.04 km]
         double brng = Math.toRadians(randInt(360));
@@ -404,7 +407,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         return there;
     }
 
-
+    /*redraws the polyline on the map and places a marker at the current LatLng*/
     private void redrawLine(LatLng lat) {
         mMap.clear();
         PolylineOptions options = new PolylineOptions().width(5).color(penColor).geodesic(true);
@@ -416,18 +419,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         MarkerOptions markOptions = new MarkerOptions().position(lat).title("This is me!");
         mMap.addMarker(markOptions);
         line = mMap.addPolyline(options); //add Polyline
-    }
-
-    public void initCamera(LatLng latLng){
-        mMap.getUiSettings().setZoomControlsEnabled(true);
-        CameraPosition position = CameraPosition.builder()
-                .target(latLng)
-                .zoom(18f)
-                .build();
-
-        mMap.animateCamera(CameraUpdateFactory
-                .newCameraPosition(position), null);
-        Log.v(TAG, "set up Camera");
     }
 
     @Override
@@ -453,9 +444,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public void onResume(){
         mGoogleApiClient.connect();
         mSensorManager.registerListener(r, rotationSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        registerReceiver(broadcastReceiver, filter);
         super.onResume();
     }
 
+    @Override
     public void onPause(){
         if (mGoogleApiClient.isConnected()){
             LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
@@ -464,10 +457,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mSensorManager.unregisterListener(r);
         mPoints.clear();
         mVectors.clear();
+
+        //remove all serial port connections
         if (mSerialPortConnected) {
             serialPort.close();
             mSerialPortConnected = false;
         }
+        //check some condition?
         unregisterReceiver(broadcastReceiver);
         super.onPause();
     }
@@ -543,7 +539,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     }
 
     class RotationSensorEventListener implements SensorEventListener{
-        private double rAngle;
+        private double rAngle; //rotation angle
         @Override
         public void onAccuracyChanged(Sensor s, int i){}
 
@@ -561,7 +557,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     updateCameraBearing(bearing);
                 }
                 rAngle = Math.toDegrees(orientation[0]); //0 is north
-                mAngle = (float) rAngle;
+                mAngle = (float) rAngle; //set global angle of rotation variable
             }
         }
     }
