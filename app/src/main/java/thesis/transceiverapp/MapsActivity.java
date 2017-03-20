@@ -72,7 +72,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private int penColor = Color.BLUE;
 
     private TextView maccuracyView; //GPS accuracy text view
-    private final static double ACCURACY_THRESHOLD = 8; // GPS accuracy threshold in meters
+    private final static double ACCURACY_THRESHOLD = 10; // GPS accuracy threshold in meters
     private TextView mdistView; //Distance from the transceiver text view
     private Button mButton; //God mode button
     private boolean mThreadReset = false; //boolean that resets the "God mode" thread
@@ -125,15 +125,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             switch (msg.what) {
                 case DIRECTION_DATA:
                     dir = ((Float)msg.obj).floatValue();
-                    if (dir < 360){
+                    if (dir > 0 && dir < 360){
                         mArrowImage.setRotation(dir - mAngle);
                         currAngle = dir;
                     }
                     break;
                 case DISTANCE_DATA:
                     dist = ((Double)msg.obj).doubleValue();
-                    mdistView.setText(String.format("Dist: %.2fm", dist));
-                    currDistance = dist;
+                    if (dist < 0){
+                        mdistView.setText("Dist: NA");
+                    }
+                    else {
+                        mdistView.setText(String.format("Dist: %.2fm", dist));
+                        currDistance = dist;
+                    }
                     //Log.v(TAG, "Check");
                     //Toast.makeText(MapsActivity.this, String.format("Dist: %2fm", mTransceiverDistance), Toast.LENGTH_SHORT).show();
                     break;
@@ -303,7 +308,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return;
         }
-        //mCurrentLoc = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+        mCurrentLoc = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
         Log.v(TAG, "setting up locationListener");
 
         LocationServices.FusedLocationApi.requestLocationUpdates(mGoogleApiClient,
