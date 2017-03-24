@@ -43,6 +43,7 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -67,12 +68,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private LocationRequest mLocationRequest;
     public static final String TAG = MapsActivity.class.getSimpleName();
     private static final int CONNECTION_FAILURE_RESOLUTION_REQUEST = 9000;
+
     private ArrayList<LatLng> mPoints; //list of points where the user has stepped
-    Polyline line; //line that indicates where the user is
+    private ArrayList<LatLng> mNearPoints;
+    private ArrayList<LatLng> mMidPoints;
+    private ArrayList<LatLng> mFarPoints;
+
+    //Polyline line; //line that indicates where the user is
     private int penColor = Color.BLUE;
 
     private TextView maccuracyView; //GPS accuracy text view
-    private final static double ACCURACY_THRESHOLD = 10; // GPS accuracy threshold in meters
+    private final static double ACCURACY_THRESHOLD = 12; // GPS accuracy threshold in meters
     private TextView mdistView; //Distance from the transceiver text view
     private Button mButton; //God mode button
     private boolean mThreadReset = false; //boolean that resets the "God mode" thread
@@ -233,8 +239,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .addApi(LocationServices.API)
                 .build();
 
-        mPoints = new ArrayList<LatLng>();
-        mVectors = new ArrayList<Vector>();
+        mPoints = new ArrayList<>();
+        mNearPoints = new ArrayList<>();
+        mMidPoints = new ArrayList<>();;
+        mFarPoints = new ArrayList<>();;
+
+        mVectors = new ArrayList<>();
 
 
         mdistView = (TextView) findViewById(R.id.distView);
@@ -341,24 +351,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                                 setTopBarVariables(arrow, distEstimate);
                                 MarkerOptions markOptions = new MarkerOptions()
                                         .position(new LatLng(newLoc.getLatitude(), newLoc.getLongitude()))
-                                        .title("New one to find!");
+                                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
                                 mMap.addMarker(markOptions);
                             }
                         });
 
-                    }
-
-                    //set color of the pen
-                    if (currDistance > 0 && currDistance < 5){
-                        penColor = Color.GREEN;
-                    }
-
-                    else if (currDistance > 0 && currDistance < 15){
-                        penColor = Color.YELLOW;
-                    }
-
-                    else if (currDistance > 0 && currDistance > 15){
-                        penColor = Color.RED;
                     }
 
                     else{
@@ -422,15 +419,39 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     /*redraws the polyline on the map and places a marker at the current LatLng*/
     private void redrawLine(LatLng lat) {
         mMap.clear();
-        PolylineOptions options = new PolylineOptions().width(5).color(penColor).geodesic(true);
+
+        PolylineOptions nearLine = new PolylineOptions().color(Color.GREEN).geodesic(true);
+        PolylineOptions midLine = new PolylineOptions().color(Color.YELLOW).geodesic(true);
+        PolylineOptions farLine = new PolylineOptions().color(Color.RED).geodesic(true);
+
+        PolylineOptions options = new PolylineOptions().color(penColor).geodesic(true);
         for (int i = 0; i < mPoints.size(); i++) {
             //adjust based on distance
             LatLng point = mPoints.get(i);
             options.add(point);
         }
+        for (int i = 0; i < mNearPoints.size(); i++) {
+            //adjust based on distance
+            LatLng point = mNearPoints.get(i);
+            nearLine.add(point);
+        }
+        for (int i = 0; i < mMidPoints.size(); i++) {
+            //adjust based on distance
+            LatLng point = mMidPoints.get(i);
+            midLine.add(point);
+        }
+        for (int i = 0; i < mFarPoints.size(); i++) {
+            //adjust based on distance
+            LatLng point = mFarPoints.get(i);
+            farLine.add(point);
+        }
+
         MarkerOptions markOptions = new MarkerOptions().position(lat).title("This is me!");
         mMap.addMarker(markOptions);
-        line = mMap.addPolyline(options); //add Polyline
+        mMap.addPolyline(options); //add Polyline
+        mMap.addPolyline(nearLine); //add Polyline
+        mMap.addPolyline(midLine); //add Polyline
+        mMap.addPolyline(farLine); //add Polyline
     }
 
     @Override
@@ -518,7 +539,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         //if accuracy < 15 meters redraw line and update camera
         if(accuracyMeters < ACCURACY_THRESHOLD) {
-            mPoints.add(latLng);
+
+            if (currDistance > 0 && currDistance <= 5)
+                mNearPoints.add(latLng);
+            else if (currDistance >  5 && currDistance <= 15)
+                mMidPoints.add(latLng);
+            else if (currDistance > 15)
+                mFarPoints.add(latLng);
+            else
+                mPoints.add(latLng);
+
             mVectors.add(new Vector(currAngle, currDistance, latLng));
             redrawLine(latLng);
             updateCameraLocation(latLng);
@@ -528,6 +558,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         return latLng;
 
     }
+
 
     /*updates the camera's bearing based on the float bearing*/
     private void updateCameraBearing(float bearing) {
