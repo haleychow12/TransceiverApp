@@ -78,7 +78,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private int penColor = Color.BLUE;
 
     private TextView maccuracyView; //GPS accuracy text view
-    private final static double ACCURACY_THRESHOLD = 12; // GPS accuracy threshold in meters
+    private final static double ACCURACY_THRESHOLD = 15; // GPS accuracy threshold in meters
     private TextView mdistView; //Distance from the transceiver text view
     private Button mButton; //God mode button
     private boolean mThreadReset = false; //boolean that resets the "God mode" thread
@@ -113,7 +113,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     final static int DISTANCE_DATA = 456; //unique int that identifies Distance data to the handler
 
     private double mTransceiverDistance = -1; //double that holds transceiver Distance in meters
-    private float mTransceiverDirection = -1; //float that holds transceiver direction in degrees
+    private float mTransceiverDirection = 360; //float that holds transceiver direction in degrees
 
     //default camera position
     public static final CameraPosition PRINCETON =
@@ -131,10 +131,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             switch (msg.what) {
                 case DIRECTION_DATA:
                     dir = ((Float)msg.obj).floatValue();
-                    if (dir > 0 && dir < 360){
-                        mArrowImage.setRotation(dir - mAngle);
+                    if (dir > -45 && dir < 45){ //the transceiver and tablet don't rotate independently
+                        mArrowImage.setRotation(dir);
                         currAngle = dir;
                     }
+                    Toast.makeText(MapsActivity.this, String.format("Dir: %2f degrees", dir), Toast.LENGTH_SHORT).show();
                     break;
                 case DISTANCE_DATA:
                     dist = ((Double)msg.obj).doubleValue();
@@ -146,7 +147,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         currDistance = dist;
                     }
                     //Log.v(TAG, "Check");
-                    //Toast.makeText(MapsActivity.this, String.format("Dist: %2fm", mTransceiverDistance), Toast.LENGTH_SHORT).show();
                     break;
             }
         }
@@ -329,7 +329,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         //Thread with simulated and real info from Avalanche Transceiver
         new Thread (new Runnable() {
             Location newLoc;
-            float arrow;
+            float arrowDirection;
             double distEstimate;
             public void run(){
                 while(mGoogleApiClient.isConnected()){
@@ -340,15 +340,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     }
                     if (newLoc != null) {
                         //set arrow picture rotation
-                        arrow = mCurrentLoc.bearingTo(newLoc) % 360;
-                        Log.v(TAG,Double.toString(arrow));
+                        arrowDirection = mCurrentLoc.bearingTo(newLoc) % 360;
+                        Log.v(TAG,Double.toString(arrowDirection));
 
 
                         distEstimate = mCurrentLoc.distanceTo(newLoc);
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                setTopBarVariables(arrow, distEstimate);
+                                setTopBarVariables(arrowDirection, distEstimate);
                                 MarkerOptions markOptions = new MarkerOptions()
                                         .position(new LatLng(newLoc.getLatitude(), newLoc.getLongitude()))
                                         .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
@@ -374,7 +374,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                     }
 
-                    SystemClock.sleep(2000);
+                    SystemClock.sleep(500); //thread sleeps x ms
                 }
             }
         }).start();
