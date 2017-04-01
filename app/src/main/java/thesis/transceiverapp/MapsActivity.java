@@ -78,7 +78,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private int penColor = Color.BLUE;
 
     private TextView maccuracyView; //GPS accuracy text view
-    private final static double ACCURACY_THRESHOLD = 15; // GPS accuracy threshold in meters
+    private final static double ACCURACY_THRESHOLD = 6; // GPS accuracy threshold in meters
     private TextView mdistView; //Distance from the transceiver text view
     private Button mButton; //God mode button
     private boolean mThreadReset = false; //boolean that resets the "God mode" thread
@@ -131,11 +131,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             switch (msg.what) {
                 case DIRECTION_DATA:
                     dir = ((Float)msg.obj).floatValue();
-                    if (dir > -45 && dir < 45){ //the transceiver and tablet don't rotate independently
+                    if (dir > -45 && dir < 45) { //the transceiver and tablet don't rotate independently
                         mArrowImage.setRotation(dir);
                         currAngle = dir;
                     }
-                    Toast.makeText(MapsActivity.this, String.format("Dir: %2f degrees", dir), Toast.LENGTH_SHORT).show();
                     break;
                 case DISTANCE_DATA:
                     dist = ((Double)msg.obj).doubleValue();
@@ -374,7 +373,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
                     }
 
-                    SystemClock.sleep(500); //thread sleeps x ms
+                    SystemClock.sleep(500); //good value to update ui
                 }
             }
         }).start();
