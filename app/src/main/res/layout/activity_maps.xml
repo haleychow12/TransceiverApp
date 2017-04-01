@@ -61,7 +61,8 @@
             android:src="@drawable/arrow"
             android:background="@android:color/transparent"
             android:id="@+id/arrow"
-            android:layout_weight="1"/>
+            android:layout_weight="1"
+            android:visibility="invisible"/>
     </LinearLayout>
 
     </LinearLayout>

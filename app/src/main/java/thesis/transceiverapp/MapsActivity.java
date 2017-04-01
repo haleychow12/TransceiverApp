@@ -132,6 +132,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 case DIRECTION_DATA:
                     dir = ((Float)msg.obj).floatValue();
                     if (dir > -45 && dir < 45) { //the transceiver and tablet don't rotate independently
+                        mArrowImage.setVisibility(View.VISIBLE); //wasteful...fix later
                         mArrowImage.setRotation(dir);
                         currAngle = dir;
                     }
@@ -139,7 +140,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 case DISTANCE_DATA:
                     dist = ((Double)msg.obj).doubleValue();
                     if (dist < 0){
-                        mdistView.setText("Dist: NA");
+                        mdistView.setText("Dist: Locating Target");
                     }
                     else {
                         mdistView.setText(String.format("Dist: %.2fm", dist));
@@ -163,12 +164,15 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     String[] parts = data.split(",");
                     //check if the data is good
                     if (parts[0].equals("A") && parts.length > 2) {
-                        //change from centidegrees to degrees
-                        mTransceiverDirection = Integer.parseInt(parts[1]);
-                        mTransceiverDirection /= 100.0;
+                        //check for default values
+                        if (parts[2].equals("32767,")) {
+                            //change from centidegrees to degrees
+                            mTransceiverDirection = Integer.parseInt(parts[1]);
+                            mTransceiverDirection /= 100.0;
 
-                        //centimeters to meters
-                        mTransceiverDistance = Integer.parseInt(parts[2]) / 100.0;
+                            //centimeters to meters
+                            mTransceiverDistance = Integer.parseInt(parts[2]) / 100.0;
+                        }
                     }
                 }
             } catch (UnsupportedEncodingException e) {
@@ -240,8 +244,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         mPoints = new ArrayList<>();
         mNearPoints = new ArrayList<>();
-        mMidPoints = new ArrayList<>();;
-        mFarPoints = new ArrayList<>();;
+        mMidPoints = new ArrayList<>();
+        mFarPoints = new ArrayList<>();
 
         mVectors = new ArrayList<>();
 
@@ -255,6 +259,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             @Override
             public void onClick(View v) {
                 mThreadReset = true;
+                mArrowImage.setVisibility(View.VISIBLE);
             }
         });
 
