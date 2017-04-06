@@ -35,6 +35,10 @@ public class Vector {
     on location changed? but after a certain number of steps have been taken or a certain
     amount of distance has been covered*/
 
+
+
+
+
     /*this method takes a vectorList (points with vectors) and samples a list of evenly spaced
     LatLngs to find which LatLng calculated magnetic field lines up the best with the observed
     field (represented by the list of points*/

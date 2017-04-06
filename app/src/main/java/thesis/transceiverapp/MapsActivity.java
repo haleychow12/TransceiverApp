@@ -78,7 +78,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private int penColor = Color.BLUE;
 
     private TextView maccuracyView; //GPS accuracy text view
-    private final static double ACCURACY_THRESHOLD = 6; // GPS accuracy threshold in meters
+    private final static double ACCURACY_THRESHOLD = 11; // GPS accuracy threshold in meters
     private TextView mdistView; //Distance from the transceiver text view
     private Button mButton; //God mode button
     private boolean mThreadReset = false; //boolean that resets the "God mode" thread
@@ -554,6 +554,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 mPoints.add(latLng);
 
             mVectors.add(new Vector(currAngle, currDistance, latLng));
+            Log.v(TAG, String.format("This is the current angle: %.4f" , currAngle));
             redrawLine(latLng);
             updateCameraLocation(latLng);
             mCurrentLoc = location;
@@ -582,7 +583,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         CameraPosition pos = CameraPosition
                 .builder(mMap.getCameraPosition())
                 .target(latLng)
-                .zoom(20f)
+                .zoom(20.5f) //maybe adjust zoom based on distance
                 .build();
         mMap.animateCamera(CameraUpdateFactory.newCameraPosition(pos));
 
