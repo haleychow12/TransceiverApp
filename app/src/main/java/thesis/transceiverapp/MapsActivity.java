@@ -78,7 +78,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private int penColor = Color.BLUE;
 
     private TextView maccuracyView; //GPS accuracy text view
-    private final static double ACCURACY_THRESHOLD = 11; // GPS accuracy threshold in meters
+    private final static double ACCURACY_THRESHOLD = 20; // GPS accuracy threshold in meters
     private TextView mdistView; //Distance from the transceiver text view
     private Button mButton; //God mode button
     private boolean mThreadReset = false; //boolean that resets the "God mode" thread
@@ -96,7 +96,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     //private SupportMapFragment mMapFragment;
     private ImageView mArrowImage;
     private float mAngle = 0; //current angle of rotation the android tablet is at
-    private double currDistance = 0; //current Distance to a transceiver
+    private double currDistance, lastDistance = 0; //current and last Distance to a transceiver
     private float currAngle = 0; //current angle the arrow is rotated at
 
     public final String ACTION_USB_PERMISSION = "com.hariharan.arduinousb.USB_PERMISSION";
@@ -553,8 +553,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             else
                 mPoints.add(latLng);
 
-            mVectors.add(new Vector(currAngle, currDistance, latLng));
-            Log.v(TAG, String.format("This is the current angle: %.4f" , currAngle));
+            //Don't want to make a new point if distance calc is within .1
+            if (currDistance < lastDistance - .05 || currDistance > lastDistance +.05) {
+                mVectors.add(new Vector(currAngle, currDistance, latLng));
+                lastDistance = currDistance;
+                Log.v(TAG, String.format("Adding a vector with dist: %.4f, %.4f" , currDistance, currAngle));
+            }
+
+            //Log.v(TAG, String.format("Adding a point with dist: %.4f, %.4f" , currDistance, currAngle));
             redrawLine(latLng);
             updateCameraLocation(latLng);
             mCurrentLoc = location;
