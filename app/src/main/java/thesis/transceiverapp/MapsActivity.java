@@ -53,6 +53,7 @@ import com.google.android.gms.maps.model.PolylineOptions;
 
 import com.felhr.usbserial.UsbSerialDevice;
 import com.felhr.usbserial.UsbSerialInterface;
+import com.google.android.gms.maps.model.VisibleRegion;
 
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
@@ -114,6 +115,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private double mTransceiverDistance = -1; //double that holds transceiver Distance in meters
     private float mTransceiverDirection = 360; //float that holds transceiver direction in degrees
+
 
     //default camera position
     public static final CameraPosition PRINCETON =
@@ -303,6 +305,32 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
         Toast.makeText(this, "no usb device", Toast.LENGTH_SHORT).show();
     }
+
+    /* Behavior after clicking the find button. Starts the Latlng Transform
+    * to Cartesian Coordinates and runs the crawling algorithm*/
+    public void onClickFind(View view) {
+        VisibleRegion vr = mMap.getProjection().getVisibleRegion();
+        LatLng bottomleft = vr.latLngBounds.southwest;
+        LatLng topright = vr.latLngBounds.northeast;
+
+        ArrayList<Point> pointsList = new ArrayList<>();
+
+        double lat0 = bottomleft.latitude;
+        double lat1 = topright.latitude;
+        double long0 = bottomleft.longitude;
+        double long1 = topright.longitude;
+
+        Log.v(TAG, String.format("Bounds: (lat0,lat1): (%.5f,%.5f) (long0,long1): (%.5f,%.5f)",
+        lat0, lat1, long0,long1));
+
+        LatLng center = new LatLng((lat1-lat0)/2, (long1-long0)/2);
+
+        for (Vector v: mVectors){
+            pointsList.add(v.toPoint(center));
+        }
+
+    }
+
 
     @Override
     public void onMapReady(GoogleMap googleMap) {

@@ -1,7 +1,10 @@
 package thesis.transceiverapp;
 
+import android.location.Location;
+
 import com.google.android.gms.maps.model.LatLng;
 
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 
 /**
@@ -31,28 +34,29 @@ public class Vector {
     public LatLng getLatLng(){
         return mLatLng;
     }
-    /*need to determine when to check the vectors against the magnetic field "in theory"
-    on location changed? but after a certain number of steps have been taken or a certain
-    amount of distance has been covered*/
 
+    public Point toPoint(LatLng center){
+        double startLat = center.latitude;
+        double endLat = mLatLng.latitude;
+        double startLng = center.longitude;
+        double endLng = mLatLng.longitude;
 
+        float[] results = new float[2];
 
+        Location.distanceBetween(startLat, endLat, startLng, endLng, results);
 
+        //in meters
+        double r = results[0];
 
-    /*this method takes a vectorList (points with vectors) and samples a list of evenly spaced
-    LatLngs to find which LatLng calculated magnetic field lines up the best with the observed
-    field (represented by the list of points*/
-    public static ArrayList<Vector> analyzeMagneticField(ArrayList<Vector> vectorList,
-                                                         ArrayList<LatLng> samples){
+        //in degrees, initial bearing
+        double theta = Math.toRadians(results[1]);
 
-        for (int i = 0; i < samples.size(); i++){
-            //for each sample, take every latlng in the vector list and throw it in the
-            //magnetic field equation. find the average difference between the calculated field
-            //magnitude in meters (and if I can figure out direction) and the distance in the
-            // vector list
-        }
-        return vectorList;
+        double x = r*Math.cos(theta);
+        double y = r*Math.sin(theta);
+
+        return new Point(x,y);
 
     }
+
 
 }
