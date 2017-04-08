@@ -323,11 +323,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         Log.v(TAG, String.format("Bounds: (lat0,lat1): (%.5f,%.5f) (long0,long1): (%.5f,%.5f)",
         lat0, lat1, long0,long1));
 
-        LatLng center = new LatLng((lat1-lat0)/2, (long1-long0)/2);
+        LatLng center = new LatLng((lat1+lat0)/2, (long1+long0)/2);
 
         for (Vector v: mVectors){
-            pointsList.add(v.toPoint(center));
+            Point p = v.toPoint(center);
+            pointsList.add(p);
         }
+
+
 
     }
 
