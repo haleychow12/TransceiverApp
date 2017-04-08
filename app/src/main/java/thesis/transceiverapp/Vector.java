@@ -25,18 +25,6 @@ public class Vector {
         mLatLng = latLng;
     }
 
-    public float getDirection(){
-        return mAngDegrees;
-    }
-
-    public double getDistance(){
-        return mDistCentimeters;
-    }
-
-    public LatLng getLatLng(){
-        return mLatLng;
-    }
-
     //converts the Latlng that calls this method into a point on the cartesian plane.
     //creates an x,y point that is the same distance in meters away
     public Point toPoint(LatLng center){

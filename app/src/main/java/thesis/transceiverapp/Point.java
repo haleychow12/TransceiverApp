@@ -13,23 +13,25 @@ public class Point {
         y = yPoint;
     }
 
-    //rotates x and y around 0,0 by theta radians
-    //places x' in results[0] and y' in results[1]
-    public void rotate(double x, double y, double T, double[] results){
-        results[0] = x*Math.cos(T) - y*Math.sin(T);
-        results[1] = x*Math.sin(T) + y*Math.cos(T);
+    //rotates x and y around 0,0 by theta radians, returns point with new x and y
+    public static Point rotate(double x, double y, double T){
+        return new Point(x*Math.cos(T) - y*Math.sin(T), x*Math.sin(T) + y*Math.cos(T));
+
     }
 
     //rotates x,y about rotate_point_x, rotate_point_y by theta radians
-    //places x' in results[0] and y' in results[1]
-    public void rotate_point(double x, double y, double rotate_point_x,
-                             double rotate_point_y, double T, double[] results){
-        rotate(x-rotate_point_x, y-rotate_point_y, T, results);
+    //returns point with new x and y
+    public static Point rotate_point(double x, double y, double rotate_point_x,
+                             double rotate_point_y, double T){
+        Point prime = rotate(x-rotate_point_x, y-rotate_point_y, T);
 
-        results[0] = results[0] + rotate_point_x;
-        results[1] = results[1] + rotate_point_y;
+        return new Point(prime.x + rotate_point_x, prime.y + rotate_point_y);
     }
 
+    //calculates and returns the distance between two points
+    public static double distance(Point a, Point b){
+        return (Math.sqrt((a.x-b.x)*(a.x-b.x) + (a.y-b.y)*(a.y-b.y)));
+    }
 
     public static void crawlingAlgorithm(){
 
