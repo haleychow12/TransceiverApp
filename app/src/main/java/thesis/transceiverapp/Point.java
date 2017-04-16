@@ -179,47 +179,67 @@ public class Point {
         return new Point(xguess, yguess);
     }
 
-    private static Point findRandomNeighbor(int x, int y, Point[][] pointsList){
+    private static Point findRandomNeighbor(int x, int y, Point[][] pointsList, int[] nextIndex){
         int counter = 0;
         Point[] neighbors = new Point[8];
+        int[] xVals = new int[8];
+        int[] yVals = new int[8];
 
         int lenx = pointsList.length;
         int leny = pointsList[0].length;
 
         if (x > 0){
             neighbors[counter] = pointsList[x-1][y];
+            xVals[counter] = x-1;
+            yVals[counter] = y;
             counter++;
             if (y > 0){
                 neighbors[counter] = pointsList[x-1][y-1];
+                xVals[counter] = x-1;
+                yVals[counter] = y-1;
                 counter++;
             }
             if (y+1 < leny){
                 neighbors[counter] = pointsList[x-1][y+1];
+                xVals[counter] = x-1;
+                yVals[counter] = y+1;
                 counter++;
             }
         }
         if (x+1 < lenx){
             neighbors[counter] = pointsList[x+1][y];
+            xVals[counter] = x+1;
+            yVals[counter] = y;
             counter++;
             if (y > 0){
                 neighbors[counter] = pointsList[x+1][y-1];
+                xVals[counter] = x+1;
+                yVals[counter] = y-1;
                 counter++;
             }
             if (y+1 < leny){
                 neighbors[counter] = pointsList[x+1][y+1];
+                xVals[counter] = x+1;
+                yVals[counter] = y+1;
                 counter++;
             }
         }
         if (y > 0){
             neighbors[counter] = pointsList[x][y-1];
+            xVals[counter] = x;
+            yVals[counter] = y-1;
             counter++;
         }
         if (y+1 < leny){
             neighbors[counter] = pointsList[x][y+1];
+            xVals[counter] = x;
+            yVals[counter] = y+1;
             counter++;
         }
 
         int random = (int) (Math.random()*counter);
+        nextIndex[0] = xVals[random];
+        nextIndex[1] = yVals[random];
         return neighbors[random];
     }
 
@@ -288,8 +308,8 @@ public class Point {
     //returns null if error is too large
     public static Point annealingAlgorithm(Point[] searchList, double[] dirList, double[] rList){
         ArrayList<Point> bestGuess = new ArrayList<Point>();
-        double minx = -40;
-        double miny = -20;
+        double minx = -20;
+        double miny = -10;
         int xPoints = 500;
         int yPoints = 500;
         Point[][] pointsList = fillPointsList(minx, miny, xPoints, yPoints);
@@ -303,11 +323,14 @@ public class Point {
         int jmax = 5000;
         double errormax = .0001;
 
+
         //run this for some discretized amt of rotations
         for (int degree = 0; degree < 180; degree += interval){
             double temp = 9000;
             double errormin = Integer.MAX_VALUE;
             double olderror = 0;
+            int[] nextIndex = new int[2];
+            int xIndex = 0; int yIndex = 0;
             //find lowest value in (sample#) of samples
             for (int count = 0; count < samples; count++){
                 int testxIndex = (int) (Math.random()*xPoints);
@@ -321,18 +344,22 @@ public class Point {
                 if (olderror < errormin){
                     errormin = olderror;
                     startPoint = testPoint;
+                    xIndex = testxIndex;
+                    yIndex = testyIndex;
                 }
             }
 
+            //System.out.println(String.format("Source: %.4f, %.4f, Error: %.4f, Degree: %d",
+            //startPoint.x, startPoint.y, startPoint.e, startPoint.d));
+
             int j = 1;
             while (j <= jmax && olderror > errormax){
-                //get indexes of this point
-                int x = (int) ((startPoint.x-minx)/incX);
-                int y = (int) ((startPoint.y-miny)/incY);
+                //System.out.println("point:" + Double.toString(startPoint.x) + "," + Double.toString(startPoint.y));
+                //System.out.println("still point:" + Double.toString(pointsList[xIndex][yIndex].x) + ", " +Double.toString(pointsList[xIndex][yIndex].y));
                 double nexterror = 0;
 
                 //get a random neighbor
-                Point nextPoint = findRandomNeighbor(x,y, pointsList);
+                Point nextPoint = findRandomNeighbor(xIndex, yIndex, pointsList, nextIndex);
 
                 if (nextPoint.d == degree)
                     nexterror = nextPoint.e;
@@ -343,23 +370,39 @@ public class Point {
                     storeGuess(bestGuess, nexterror, nextPoint, degree);
                 }
 
+                //System.out.println(String.format("Source: %.4f, %.4f, Error: %.4f, Degree: %d",
+                //nextPoint.x, nextPoint.y, nextPoint.e, nextPoint.d));
+
                 //simulated annealing
                 double delta = nexterror - olderror;
                 if (delta < 0){
                     startPoint = nextPoint;
                     olderror = nexterror;
+                    xIndex = nextIndex[0];
+                    yIndex = nextIndex[1];
                 }
                 else{
+
                     double p = Math.exp(-delta/temp);
+                    //System.out.println(Double.toString(p));
                     if (Math.random() < p){
                         startPoint = nextPoint;
                         olderror = nexterror;
+                        xIndex = nextIndex[0];
+                        yIndex = nextIndex[1];
                     }
                 }
                 temp = temp*alpha;
+                //System.out.println("temp: " + Double.toString(temp));
                 j+=1;
             }
         }
+        for (int i = 0; i < bestGuess.size(); i++){
+            Log.d(TAG, String.format("Guess: %.4f, %.4f, Error: %.4f, Degree: %d",
+                    bestGuess.get(i).x, bestGuess.get(i).y, bestGuess.get(i).e, bestGuess.get(i).d));
+
+        }
+
         //Point guess = findAvg(bestGuess);
         //turn the guess into a latlng
         return findAvg(bestGuess);
