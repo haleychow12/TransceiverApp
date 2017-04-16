@@ -25,13 +25,22 @@ public class Vector {
         mLatLng = latLng;
     }
 
+    public float getAngDegrees(){
+        return mAngDegrees;
+    }
+    public double getDistCentimeters(){
+        return mDistCentimeters;
+    }
+    public LatLng getLatLng(){
+        return mLatLng;
+    }
     //converts the Latlng that calls this method into a point on the cartesian plane.
     //creates an x,y point that is the same distance in meters away
-    public Point toPoint(LatLng center){
+    public static Point toPoint(LatLng myLatLng, LatLng center){
         double startLat = center.latitude;
-        double endLat = mLatLng.latitude;
+        double endLat = myLatLng.latitude;
         double startLng = center.longitude;
-        double endLng = mLatLng.longitude;
+        double endLng = myLatLng.longitude;
 
         float[] results = new float[2];
 

@@ -313,7 +313,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         LatLng bottomleft = vr.latLngBounds.southwest;
         LatLng topright = vr.latLngBounds.northeast;
 
-        ArrayList<Point> pointsList = new ArrayList<>();
+        int length = mVectors.size();
+
+        Point[] searchList = new Point[length];
+        double[] dirList = new double[length];
+        double[] rList = new double[length];
 
         double lat0 = bottomleft.latitude;
         double lat1 = topright.latitude;
@@ -325,12 +329,28 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         LatLng center = new LatLng((lat1+lat0)/2, (long1+long0)/2);
 
-        for (Vector v: mVectors){
-            Point p = v.toPoint(center);
-            pointsList.add(p);
+        for (int i = 0; i < mVectors.size(); i++){
+            Vector v = mVectors.get(i);
+            searchList[i] = Vector.toPoint(v.getLatLng(), center);
+            dirList[i] = v.getAngDegrees();
+            rList[i] = v.getDistCentimeters();
         }
 
+        Point guess = Point.annealingAlgorithm(searchList, dirList, rList);
+        if (guess == null)
+            Log.v(TAG, "Error was too high");
+        else{
+            Log.v(TAG, String.format("Guess: %.4f, %.4f", guess.x, guess.y));
+            LatLng sourceGuess = guess.getLatLng(center);
 
+            //place a marker
+            MarkerOptions markOptions = new MarkerOptions()
+                    .position(sourceGuess)
+                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
+            mMap.addMarker(markOptions);
+
+            //update the UI
+        }
 
     }
 

@@ -1,5 +1,13 @@
 package thesis.transceiverapp;
 
+import android.util.Log;
+
+import com.google.android.gms.maps.model.LatLng;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+
 /**
  * Created by hcc999 on 4/7/17.
  */
@@ -7,11 +15,62 @@ package thesis.transceiverapp;
 public class Point {
 
     //Cartesian stuff will be done in this class
-    double x, y;
+    //magnetic moment
+    private static final double MOMENT = 0.02714336053;
+    private static double incX, incY;
+
+    private static final String TAG = "Point";
+    public double x, y;
+    private double e;
+    private int d;
     public Point(double xPoint, double yPoint){
-        x = xPoint;
-        y = yPoint;
+        this.x = xPoint;
+        this.y = yPoint;
+        this.d = -1;
     }
+
+    private void setError(double e, int degree){
+        this.e = e;
+        this.d = degree;
+    }
+
+    public double getX(){
+        return this.x;
+    }
+
+    public double getY(){
+        return this.y;
+    }
+
+    //returns a LatLng object that represents this point using the LatLng ref
+    //as the center LatLng
+    public LatLng getLatLng(LatLng ref){
+        if (ref == null)
+            return null;
+
+        double d = Math.sqrt(this.x*this.x + this.y*this.y);
+        double brng = Math.atan2(this.x, this.y);
+
+        double R = 6378.1; //radius of Earth
+
+        double lat1 = ref.latitude;
+        double lon1 = ref.longitude;
+
+        double lat2 = Math.asin(Math.sin(lat1)*Math.cos(d/R) +
+                Math.cos(lat1)*Math.sin(d/R)*Math.cos(brng));
+
+        double lon2 = lon1 + Math.atan2(Math.sin(brng)* Math.sin(d/R)*Math.cos(lat1),
+                Math.cos(d/R)- Math.sin(lat1)*Math.sin(lat2));
+
+        return new LatLng(lat2, lon2);
+
+    }
+
+    private static void setIncrementers(double xincr, double yincr){
+        incX = xincr;
+        incY = yincr;
+    }
+
 
     //rotates x and y around 0,0 by theta radians, returns point with new x and y
     public static Point rotate(double x, double y, double T){
@@ -29,11 +88,280 @@ public class Point {
     }
 
     //calculates and returns the distance between two points
-    public static double distance(Point a, Point b){
+    private static double distance(Point a, Point b){
         return (Math.sqrt((a.x-b.x)*(a.x-b.x) + (a.y-b.y)*(a.y-b.y)));
     }
 
-    public static void crawlingAlgorithm(){
+    //normalizes the slope error between (0,1)
+    private static double snorm(double error){
+        double NORM = 20.0;
+        if (error > NORM)
+            return 1;
+        return error/NORM;
+    }
 
+    //normalizes the distance error between (0,1)
+    private static double dnorm(double error){
+        double NORM = 10.0;
+        if (error > NORM)
+            return 1;
+        return error/NORM;
+    }
+
+    //returns an array with the value of the field from a transmitter at the
+    //location tloc with orientation theta degrees, at point myloc. x value
+    //of the field located in results[0], y value in results[1]
+    private static void field(Point tloc, Point myloc, double theta, double[] results){
+        theta = Math.toRadians(theta);
+        Point prime = rotate_point(myloc.x, myloc.y, tloc.x, tloc.y, -theta);
+
+        double[] r = {prime.x - tloc.x, prime.y - tloc.y};
+        double rnorm = Math.sqrt(r[0]*r[0] + r[1]*r[1]);
+
+        double f1 = 1 / (4 * Math.PI);
+
+        double[] f2 = {0.0, 0.0};
+        double[] f3 = {0.0, 0.0};
+
+        f2[0] = 3 * r[0] * (MOMENT*r[1]) / (Math.pow(rnorm, 5));
+        f2[1] = 3 * r[1] * (MOMENT*r[1]) / (Math.pow(rnorm, 5));
+        f3[1] = MOMENT / (rnorm*rnorm*rnorm);
+
+        results[0] = f1 * (f2[0] - f3[0]) * 1E6;
+        results[1] = f1 * (f2[1] - f3[1]) * 1E6;
+
+    }
+
+    //creates a Points 2-D array that contains the locations of each of the points in the grid
+    private static Point[][] fillPointsList(double minx, double miny, int xPoints, int yPoints){
+        Point[][] pointList = new Point[xPoints][yPoints];
+
+        double xincr = -1*(minx/(xPoints/2));
+        double yincr = -1*(miny/(yPoints/2));
+
+        setIncrementers(xincr, yincr);
+
+        double x = minx;
+        double y = miny;
+
+        for (int i = 0; i < xPoints; i++){
+            for (int j = 0; j < yPoints; j++){
+                pointList[i][j] = new Point(x, y);
+                //System.out.println(String.format("Point (%.4f, %.4f)", x, y));
+                y += yincr;
+            }
+            x += xincr;
+            y = miny;
+        }
+
+        return pointList;
+    }
+
+    private static Point findAvg(ArrayList<Point> bestGuess){
+        double avgx = 0;
+        double avgy = 0;
+
+        double errorThreshold = .75; //really need to change this, like 3?
+
+        for (Point p: bestGuess){
+            avgx += p.x;
+            avgy += p.y;
+
+            if (p.e > errorThreshold){
+                Log.v(TAG, "Error is too large");
+                return null;
+            }
+        }
+
+        double xguess = avgx/bestGuess.size();
+        double yguess = avgy/bestGuess.size();
+
+        return new Point(xguess, yguess);
+    }
+
+    private static Point findRandomNeighbor(int x, int y, Point[][] pointsList){
+        int counter = 0;
+        Point[] neighbors = new Point[8];
+
+        int lenx = pointsList.length;
+        int leny = pointsList[0].length;
+
+        if (x > 0){
+            neighbors[counter] = pointsList[x-1][y];
+            counter++;
+            if (y > 0){
+                neighbors[counter] = pointsList[x-1][y-1];
+                counter++;
+            }
+            if (y+1 < leny){
+                neighbors[counter] = pointsList[x-1][y+1];
+                counter++;
+            }
+        }
+        if (x+1 < lenx){
+            neighbors[counter] = pointsList[x+1][y];
+            counter++;
+            if (y > 0){
+                neighbors[counter] = pointsList[x+1][y-1];
+                counter++;
+            }
+            if (y+1 < leny){
+                neighbors[counter] = pointsList[x+1][y+1];
+                counter++;
+            }
+        }
+        if (y > 0){
+            neighbors[counter] = pointsList[x][y-1];
+            counter++;
+        }
+        if (y+1 < leny){
+            neighbors[counter] = pointsList[x][y+1];
+            counter++;
+        }
+
+        int random = (int) (Math.random()*counter);
+        return neighbors[random];
+    }
+
+    private static void storeGuess(ArrayList<Point> bestGuess, double error, Point p, int degree){
+        int bestGuessLength = 4;
+        int count = bestGuess.size();
+        Point point;
+
+        if (count < bestGuessLength || error < bestGuess.get(count-1).e){
+            point = new Point(p.x, p.y);
+            point.setError(error, degree);
+            bestGuess.add(point);
+
+            // Sorting
+            Collections.sort(bestGuess, new Comparator<Point>() {
+                @Override
+                public int compare(Point a, Point b)
+                {
+                    if (a.e > b.e)
+                        return 1;
+                    if (a.e == b.e)
+                        return 0;
+                    else
+                        return -1;
+                }
+            });
+
+            if (count+1 > bestGuessLength)
+                bestGuess.remove(count);
+        }
+    }
+
+
+    //calculate the error with a transmitter at testPoint oriented in the direction theta
+    //degrees
+    private static double calcError(double theta, Point testPoint, Point[] searchList,
+                                    double[] dirList, double[] rList){
+        int NUMVALS = 7; //only test the last 7 values
+        int SLOPE_MULTIPLIER = 16; //multiplier for the direction difference
+
+        double slopeError = 0;
+        double distError = 0;
+
+        double[] testResults = new double[2];
+
+        int length = searchList.length;
+        if (length < NUMVALS)
+            NUMVALS = length;
+
+
+        //calculating error on only the last NUMVALS measurements
+        for (int i = 0; i < NUMVALS; i++){
+            int k = length - (i+1);
+            field(testPoint, searchList[k], theta, testResults);
+
+            double testr = distance(testPoint, searchList[k]);
+            double testslope = testResults[1]/testResults[0];
+
+            slopeError += (dirList[k] - testslope)*(dirList[k] - testslope);
+            distError += (rList[k] - testr)*(rList[k] - testr);
+        }
+        return Math.sqrt(SLOPE_MULTIPLIER*snorm(slopeError) + dnorm(distError));
+    }
+
+    //does the simulated annealing algorithm to find the magnetic moment source,
+    //returns null if error is too large
+    public static Point annealingAlgorithm(Point[] searchList, double[] dirList, double[] rList){
+        ArrayList<Point> bestGuess = new ArrayList<Point>();
+        double minx = -40;
+        double miny = -20;
+        int xPoints = 500;
+        int yPoints = 500;
+        Point[][] pointsList = fillPointsList(minx, miny, xPoints, yPoints);
+
+        int interval = 2;
+        int samples = 50;
+        Point startPoint = null;
+
+        //set annealing constants
+        double alpha = .9;
+        int jmax = 5000;
+        double errormax = .0001;
+
+        //run this for some discretized amt of rotations
+        for (int degree = 0; degree < 180; degree += interval){
+            double temp = 9000;
+            double errormin = Integer.MAX_VALUE;
+            double olderror = 0;
+            //find lowest value in (sample#) of samples
+            for (int count = 0; count < samples; count++){
+                int testxIndex = (int) (Math.random()*xPoints);
+                int testyIndex = (int) (Math.random()*yPoints);
+                Point testPoint = pointsList[testxIndex][testyIndex];
+
+                olderror = calcError(degree, testPoint, searchList, dirList, rList);
+                pointsList[testxIndex][testyIndex].setError(olderror, degree);
+
+                //switch out values if olderror is less than current min
+                if (olderror < errormin){
+                    errormin = olderror;
+                    startPoint = testPoint;
+                }
+            }
+
+            int j = 1;
+            while (j <= jmax && olderror > errormax){
+                //get indexes of this point
+                int x = (int) ((startPoint.x-minx)/incX);
+                int y = (int) ((startPoint.y-miny)/incY);
+                double nexterror = 0;
+
+                //get a random neighbor
+                Point nextPoint = findRandomNeighbor(x,y, pointsList);
+
+                if (nextPoint.d == degree)
+                    nexterror = nextPoint.e;
+                else {
+                    //calculate error
+                    nexterror = calcError(degree, nextPoint, searchList, dirList, rList);
+                    nextPoint.setError(nexterror, degree);
+                    storeGuess(bestGuess, nexterror, nextPoint, degree);
+                }
+
+                //simulated annealing
+                double delta = nexterror - olderror;
+                if (delta < 0){
+                    startPoint = nextPoint;
+                    olderror = nexterror;
+                }
+                else{
+                    double p = Math.exp(-delta/temp);
+                    if (Math.random() < p){
+                        startPoint = nextPoint;
+                        olderror = nexterror;
+                    }
+                }
+                temp = temp*alpha;
+                j+=1;
+            }
+        }
+        //Point guess = findAvg(bestGuess);
+        //turn the guess into a latlng
+        return findAvg(bestGuess);
     }
 }
