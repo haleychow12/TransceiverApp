@@ -1,8 +1,10 @@
 package thesis.transceiverapp;
 
+import android.app.AlertDialog;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.IntentSender;
@@ -88,6 +90,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private ArrayList<Vector> mVectors; //array list of vectors
 
     private Location mCurrentLoc; //current location
+    private Location mNewLoc;
 
     private SensorManager mSensorManager;
     private SensorEventListener r;
@@ -278,12 +281,12 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
         filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
         registerReceiver(broadcastReceiver, filter);
+
     }
 
     /* Behavior after clicking the start button. Connects the USB Serial Port
     with an Arduino device and begins Serial communication*/
     public void onClickStart(View view) {
-
         HashMap<String, UsbDevice> usbDevices = usbManager.getDeviceList();
         if (!usbDevices.isEmpty()) {
             boolean keep = true;
@@ -341,15 +344,34 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             Log.v(TAG, "Error was too high");
         else{
             Log.v(TAG, String.format("Guess: %.4f, %.4f", guess.x, guess.y));
-            LatLng sourceGuess = guess.getLatLng(center);
+            final LatLng sourceGuess = guess.getLatLng(center);
 
-            //place a marker
+
+            //update the UI and place a marker
             MarkerOptions markOptions = new MarkerOptions()
                     .position(sourceGuess)
                     .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
             mMap.addMarker(markOptions);
 
-            //update the UI
+            //add alert
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setMessage("Do you want to go to this new location?")
+                    .setCancelable(false)
+                    .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                            mNewLoc = new Location("Source");
+                            mNewLoc.setLatitude(sourceGuess.latitude);
+                            mNewLoc.setLongitude(sourceGuess.longitude);
+                        }
+                    })
+                    .setNegativeButton("No", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                            dialog.cancel();
+                        }
+                    });
+            AlertDialog alert = builder.create();
+            alert.show();
+
         }
 
     }
@@ -383,7 +405,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         //Thread with simulated and real info from Avalanche Transceiver
         new Thread (new Runnable() {
-            Location newLoc;
+            //Location newLoc;
             float arrowDirection;
             double distEstimate;
             public void run(){
@@ -391,21 +413,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     if(mThreadReset){
                         mThreadReset = false;
                         //create new location
-                        newLoc = getRandomNewLocation(mCurrentLoc);
+                        mNewLoc = getRandomNewLocation(mCurrentLoc);
                     }
-                    if (newLoc != null) {
+                    if (mNewLoc != null) {
                         //set arrow picture rotation
-                        arrowDirection = mCurrentLoc.bearingTo(newLoc) % 360;
+                        arrowDirection = mCurrentLoc.bearingTo(mNewLoc) % 360;
                         Log.v(TAG,Double.toString(arrowDirection));
 
 
-                        distEstimate = mCurrentLoc.distanceTo(newLoc);
+                        distEstimate = mCurrentLoc.distanceTo(mNewLoc);
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
                                 setTopBarVariables(arrowDirection, distEstimate);
                                 MarkerOptions markOptions = new MarkerOptions()
-                                        .position(new LatLng(newLoc.getLatitude(), newLoc.getLongitude()))
+                                        .position(new LatLng(mNewLoc.getLatitude(), mNewLoc.getLongitude()))
                                         .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW));
                                 mMap.addMarker(markOptions);
                             }
@@ -414,7 +436,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     }
 
                     else{
-                        //No "God mode," values are from avalanche transceiver
+                        //values are from avalanche transceiver
                         Message m = Message.obtain(mHandler, DIRECTION_DATA);
                         m.obj = Float.valueOf(mTransceiverDirection);
                         mHandler.sendMessage(m);

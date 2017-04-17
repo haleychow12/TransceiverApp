@@ -34,13 +34,6 @@ public class Point {
         this.d = degree;
     }
 
-    public double getX(){
-        return this.x;
-    }
-
-    public double getY(){
-        return this.y;
-    }
 
     //returns a LatLng object that represents this point using the LatLng ref
     //as the center LatLng
@@ -64,11 +57,6 @@ public class Point {
 
         return new LatLng(lat2, lon2);
 
-    }
-
-    private static void setIncrementers(double xincr, double yincr){
-        incX = xincr;
-        incY = yincr;
     }
 
 
@@ -136,10 +124,9 @@ public class Point {
     private static Point[][] fillPointsList(double minx, double miny, int xPoints, int yPoints){
         Point[][] pointList = new Point[xPoints][yPoints];
 
-        double xincr = -1*(minx/(xPoints/2));
-        double yincr = -1*(miny/(yPoints/2));
+        double xincr = -1*(minx/(xPoints/2 + 1));
+        double yincr = -1*(miny/(yPoints/2 + 1));
 
-        setIncrementers(xincr, yincr);
 
         double x = minx;
         double y = miny;
@@ -161,7 +148,7 @@ public class Point {
         double avgx = 0;
         double avgy = 0;
 
-        double errorThreshold = .75; //really need to change this, like 3?
+        double errorThreshold = 2.0; //really need to change this, like 3?
 
         for (Point p: bestGuess){
             avgx += p.x;
@@ -308,20 +295,20 @@ public class Point {
     //returns null if error is too large
     public static Point annealingAlgorithm(Point[] searchList, double[] dirList, double[] rList){
         ArrayList<Point> bestGuess = new ArrayList<Point>();
-        double minx = -20;
-        double miny = -10;
-        int xPoints = 500;
-        int yPoints = 500;
+        double minx = -40;
+        double miny = -20;
+        int xPoints = 1000;
+        int yPoints = 1000;
         Point[][] pointsList = fillPointsList(minx, miny, xPoints, yPoints);
 
         int interval = 2;
-        int samples = 50;
+        int samples = 500;
         Point startPoint = null;
 
         //set annealing constants
         double alpha = .9;
-        int jmax = 5000;
-        double errormax = .0001;
+        int jmax = 8000;
+        double errormax = .01;
 
 
         //run this for some discretized amt of rotations
