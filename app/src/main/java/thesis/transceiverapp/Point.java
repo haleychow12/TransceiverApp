@@ -264,8 +264,8 @@ public class Point {
     //degrees
     private static double calcError(double theta, Point testPoint, Point[] searchList,
                                     double[] dirList, double[] rList){
-        int NUMVALS = 7; //only test the last 7 values
-        int SLOPE_MULTIPLIER = 16; //multiplier for the direction difference
+        int NUMVALS = 50; //only test the last 50 values
+        int SLOPE_MULTIPLIER = 2; //multiplier for the direction difference
 
         double slopeError = 0;
         double distError = 0;
@@ -301,13 +301,13 @@ public class Point {
         int yPoints = 1000;
         Point[][] pointsList = fillPointsList(minx, miny, xPoints, yPoints);
 
-        int interval = 2;
+        int interval = 5;
         int samples = 500;
         Point startPoint = null;
 
         //set annealing constants
         double alpha = .9;
-        int jmax = 8000;
+        int jmax = 6000;
         double errormax = .01;
 
 

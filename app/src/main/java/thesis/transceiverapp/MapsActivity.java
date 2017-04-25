@@ -101,7 +101,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     private ImageView mArrowImage;
     private float mAngle = 0; //current angle of rotation the android tablet is at
     private double currDistance, lastDistance = 0; //current and last Distance to a transceiver
-    private float currAngle = 0; //current angle the arrow is rotated at
+    private float currAngle, angleAverage = 0; //current angle the arrow is rotated at
+    private int angleDenom = 0;
 
     public final String ACTION_USB_PERMISSION = "com.hariharan.arduinousb.USB_PERMISSION";
     private IntentFilter filter;
@@ -139,7 +140,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     if (dir > -45 && dir < 45) { //the transceiver and tablet don't rotate independently
                         mArrowImage.setVisibility(View.VISIBLE); //wasteful...fix later
                         mArrowImage.setRotation(dir);
-                        currAngle = dir;
+                        currAngle = mAngle+dir;
+
                     }
                     break;
                 case DISTANCE_DATA:
@@ -170,7 +172,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     //check if the data is good
                     if (parts[0].equals("A") && parts.length > 2) {
                         //check for default values
-                        if (parts[2].equals("32767,")) {
+                        if (!(Integer.parseInt(parts[2]) == 32767)) {
                             //change from centidegrees to degrees
                             mTransceiverDirection = Integer.parseInt(parts[1]);
                             mTransceiverDirection /= 100.0;
@@ -204,6 +206,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                             serialPort.setParity(UsbSerialInterface.PARITY_NONE);
                             serialPort.setFlowControl(UsbSerialInterface.FLOW_CONTROL_OFF);
                             serialPort.read(mCallback);
+
+                            //kind of out of place, but necessary
+                            mVectors.clear();
                         } else {
                             Log.d("SERIAL", "PORT NOT OPEN");
                         }
@@ -328,11 +333,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         double long1 = topright.longitude;
 
         Log.v(TAG, String.format("Bounds: (lat0,lat1): (%.5f,%.5f) (long0,long1): (%.5f,%.5f)",
-        lat0, lat1, long0,long1));
+                lat0, lat1, long0, long1));
 
-        LatLng center = new LatLng((lat1+lat0)/2, (long1+long0)/2);
+        LatLng center = new LatLng((lat1 + lat0) / 2, (long1 + long0) / 2);
 
-        for (int i = 0; i < mVectors.size(); i++){
+        for (int i = 0; i < mVectors.size(); i++) {
             Vector v = mVectors.get(i);
             searchList[i] = Vector.toPoint(v.getLatLng(), center);
             dirList[i] = v.getAngDegrees();
@@ -340,8 +345,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         }
 
         Point guess = Point.annealingAlgorithm(searchList, dirList, rList);
-        if (guess == null)
+        if (guess == null){
             Log.v(TAG, "Error was too high");
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setMessage("Error too high");
+            AlertDialog alert = builder.create();
+            alert.show();
+        }
         else{
             Log.v(TAG, String.format("Guess: %.4f, %.4f", guess.x, guess.y));
             final LatLng sourceGuess = guess.getLatLng(center);
@@ -412,6 +422,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 while(mGoogleApiClient.isConnected()){
                     if(mThreadReset){
                         mThreadReset = false;
+                        mVectors.clear();
                         //create new location
                         mNewLoc = getRandomNewLocation(mCurrentLoc);
                     }
@@ -610,6 +621,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         double currentLatitude = location.getLatitude();
         double currentLongitude = location.getLongitude();
         LatLng latLng = new LatLng(currentLatitude, currentLongitude);
+        float vectorAngle;
 
 
         maccuracyView.setText(formatAccuracy(accuracyMeters));
@@ -626,12 +638,21 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             else
                 mPoints.add(latLng);
 
-            //Don't want to make a new point if distance calc is within .1
+            //Don't want to make a new point if distance calc is within .1, want to average angles
             if (currDistance < lastDistance - .05 || currDistance > lastDistance +.05) {
-                mVectors.add(new Vector(currAngle, currDistance, latLng));
-                lastDistance = currDistance;
-                Log.v(TAG, String.format("Adding a vector with dist: %.4f, %.4f" , currDistance, currAngle));
+                angleDenom = 0;
+                angleAverage = 0;
+                vectorAngle = currAngle;
             }
+            else{
+                //get the average
+                angleDenom++;
+                angleAverage += currAngle;
+                vectorAngle = (angleAverage/(float)angleDenom);
+            }
+            lastDistance = currDistance;
+            mVectors.add(new Vector(vectorAngle, currDistance, latLng));
+            Log.v(TAG, String.format("Adding a vector with dist: %.4f, %.4f" , currDistance, vectorAngle));
 
             //Log.v(TAG, String.format("Adding a point with dist: %.4f, %.4f" , currDistance, currAngle));
             redrawLine(latLng);
