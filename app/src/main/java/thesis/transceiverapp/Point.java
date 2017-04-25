@@ -41,13 +41,13 @@ public class Point {
         if (ref == null)
             return null;
 
-        double d = Math.sqrt(this.x*this.x + this.y*this.y);
+        double d = Math.sqrt(this.x*this.x + this.y*this.y)/1000;
         double brng = Math.atan2(this.x, this.y);
 
         double R = 6378.1; //radius of Earth
 
-        double lat1 = ref.latitude;
-        double lon1 = ref.longitude;
+        double lat1 = Math.toRadians(ref.latitude);
+        double lon1 = Math.toRadians(ref.longitude);
 
         double lat2 = Math.asin(Math.sin(lat1)*Math.cos(d/R) +
                 Math.cos(lat1)*Math.sin(d/R)*Math.cos(brng));
@@ -55,6 +55,10 @@ public class Point {
         double lon2 = lon1 + Math.atan2(Math.sin(brng)* Math.sin(d/R)*Math.cos(lat1),
                 Math.cos(d/R)- Math.sin(lat1)*Math.sin(lat2));
 
+        lat2 = Math.toDegrees(lat2);
+        lon2 = Math.toDegrees(lon2);
+
+        Log.v(TAG,String.format("Lat,Lng: %.4f, %.4f", lat2, lon2));
         return new LatLng(lat2, lon2);
 
     }

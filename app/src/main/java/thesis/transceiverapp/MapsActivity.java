@@ -369,7 +369,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     .setCancelable(false)
                     .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
                         public void onClick(DialogInterface dialog, int id) {
-                            mNewLoc = new Location("Source");
+                            mNewLoc = new Location(LocationManager.GPS_PROVIDER);
                             mNewLoc.setLatitude(sourceGuess.latitude);
                             mNewLoc.setLongitude(sourceGuess.longitude);
                         }
