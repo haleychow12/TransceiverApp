@@ -74,14 +74,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
     private ArrayList<LatLng> mPoints; //list of points where the user has stepped
     private ArrayList<LatLng> mNearPoints;
-    private ArrayList<LatLng> mMidPoints;
     private ArrayList<LatLng> mFarPoints;
 
     //Polyline line; //line that indicates where the user is
-    private int penColor = Color.BLUE;
+    private int penColor = Color.RED;
 
     private TextView maccuracyView; //GPS accuracy text view
-    private final static double ACCURACY_THRESHOLD = 20; // GPS accuracy threshold in meters
+    private final static double ACCURACY_THRESHOLD = 8; // GPS accuracy threshold in meters
     private TextView mdistView; //Distance from the transceiver text view
     private Button mButton; //God mode button
     private boolean mThreadReset = false; //boolean that resets the "God mode" thread
@@ -100,8 +99,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     //private SupportMapFragment mMapFragment;
     private ImageView mArrowImage;
     private float mAngle = 0; //current angle of rotation the android tablet is at
-    private double currDistance, lastDistance = 0; //current and last Distance to a transceiver
-    private float currAngle, angleAverage = 0; //current angle the arrow is rotated at
+    private double currDistance, lastDistance = -1; //current and last Distance to a transceiver
+    private float currAngle, lastAngle, angleAverage = 0; //current angle the arrow is rotated at
     private int angleDenom = 0;
 
     public final String ACTION_USB_PERMISSION = "com.hariharan.arduinousb.USB_PERMISSION";
@@ -254,7 +253,6 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         mPoints = new ArrayList<>();
         mNearPoints = new ArrayList<>();
-        mMidPoints = new ArrayList<>();
         mFarPoints = new ArrayList<>();
 
         mVectors = new ArrayList<>();
@@ -348,7 +346,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         if (guess == null){
             Log.v(TAG, "Error was too high");
             AlertDialog.Builder builder = new AlertDialog.Builder(this);
-            builder.setMessage("Error too high");
+            builder.setMessage("Error was too high")
+                    .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int id) {
+                        dialog.cancel();
+                        }
+                    });
+
             AlertDialog alert = builder.create();
             alert.show();
         }
@@ -365,7 +369,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
             //add alert
             AlertDialog.Builder builder = new AlertDialog.Builder(this);
-            builder.setMessage("Do you want to go to this new location?")
+            builder.setMessage("Do you want to go to this new location? Error is: " + String.format("%.4f", guess.e))
                     .setCancelable(false)
                     .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
                         public void onClick(DialogInterface dialog, int id) {
@@ -509,8 +513,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.clear();
 
         PolylineOptions nearLine = new PolylineOptions().color(Color.GREEN).geodesic(true);
-        PolylineOptions midLine = new PolylineOptions().color(Color.YELLOW).geodesic(true);
-        PolylineOptions farLine = new PolylineOptions().color(Color.RED).geodesic(true);
+        PolylineOptions farLine = new PolylineOptions().color(Color.YELLOW).geodesic(true);
 
         PolylineOptions options = new PolylineOptions().color(penColor).geodesic(true);
         for (int i = 0; i < mPoints.size(); i++) {
@@ -523,11 +526,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             LatLng point = mNearPoints.get(i);
             nearLine.add(point);
         }
-        for (int i = 0; i < mMidPoints.size(); i++) {
-            //adjust based on distance
-            LatLng point = mMidPoints.get(i);
-            midLine.add(point);
-        }
+//        for (int i = 0; i < mMidPoints.size(); i++) {
+//            //adjust based on distance
+//            LatLng point = mMidPoints.get(i);
+//            midLine.add(point);
+//        }
         for (int i = 0; i < mFarPoints.size(); i++) {
             //adjust based on distance
             LatLng point = mFarPoints.get(i);
@@ -538,7 +541,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.addMarker(markOptions);
         mMap.addPolyline(options); //add Polyline
         mMap.addPolyline(nearLine); //add Polyline
-        mMap.addPolyline(midLine); //add Polyline
+        //mMap.addPolyline(midLine); //add Polyline
         mMap.addPolyline(farLine); //add Polyline
     }
 
@@ -629,17 +632,20 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         //if accuracy < 15 meters redraw line and update camera
         if(accuracyMeters < ACCURACY_THRESHOLD) {
 
-            if (currDistance > 0 && currDistance <= 5)
+            //fine search
+            if (currDistance > 0 && currDistance <= 3)
                 mNearPoints.add(latLng);
-            else if (currDistance >  5 && currDistance <= 15)
-                mMidPoints.add(latLng);
-            else if (currDistance > 15)
+            //course search
+            else if (currDistance >  3) {
                 mFarPoints.add(latLng);
+                mNearPoints.clear();
+            }
+            //signal search
             else
-                mPoints.add(latLng);
+            mPoints.add(latLng);
 
-            //Don't want to make a new point if distance calc is within .1, want to average angles
-            if (currDistance < lastDistance - .05 || currDistance > lastDistance +.05) {
+            //Don't want to make a new vector if the two points are the same
+            if (currDistance < lastDistance - .01 || currDistance > lastDistance +.01) {
                 angleDenom = 0;
                 angleAverage = 0;
                 vectorAngle = currAngle;
@@ -650,9 +656,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 angleAverage += currAngle;
                 vectorAngle = (angleAverage/(float)angleDenom);
             }
+            //check if the point is different than last time
+            if (currDistance != lastDistance || currAngle != lastAngle) {
+                mVectors.add(new Vector(vectorAngle, currDistance, latLng));
+                Log.v(TAG, String.format("Adding a vector with dist: %.4f, %.4f" , currDistance, vectorAngle));
+            }
+
             lastDistance = currDistance;
-            mVectors.add(new Vector(vectorAngle, currDistance, latLng));
-            Log.v(TAG, String.format("Adding a vector with dist: %.4f, %.4f" , currDistance, vectorAngle));
+            lastAngle = currAngle;
+
+
 
             //Log.v(TAG, String.format("Adding a point with dist: %.4f, %.4f" , currDistance, currAngle));
             redrawLine(latLng);

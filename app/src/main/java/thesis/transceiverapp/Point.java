@@ -15,14 +15,10 @@ import java.util.Comparator;
 public class Point {
 
     //Cartesian stuff will be done in this class
-    //magnetic moment
-    private static final double MOMENT = 0.02714336053;
-    private static double incX, incY;
-
+    private static final double MOMENT = 0.02714336053; //magnetic moment
     private static final String TAG = "Point";
-    public double x, y;
-    private double e;
-    private int d;
+    public double x, y, e; //x and y location and error
+    private int d; //degree
     public Point(double xPoint, double yPoint){
         this.x = xPoint;
         this.y = yPoint;
@@ -44,7 +40,7 @@ public class Point {
         double d = Math.sqrt(this.x*this.x + this.y*this.y)/1000;
         double brng = Math.atan2(this.x, this.y);
 
-        double R = 6378.1; //radius of Earth
+        double R = 6378.1; //radius of Earth in km
 
         double lat1 = Math.toRadians(ref.latitude);
         double lon1 = Math.toRadians(ref.longitude);
@@ -138,7 +134,6 @@ public class Point {
         for (int i = 0; i < xPoints; i++){
             for (int j = 0; j < yPoints; j++){
                 pointList[i][j] = new Point(x, y);
-                //System.out.println(String.format("Point (%.4f, %.4f)", x, y));
                 y += yincr;
             }
             x += xincr;
@@ -151,12 +146,13 @@ public class Point {
     private static Point findAvg(ArrayList<Point> bestGuess){
         double avgx = 0;
         double avgy = 0;
-
-        double errorThreshold = 2.0; //really need to change this, like 3?
+        double avge = 0;
+        double errorThreshold = 2;
 
         for (Point p: bestGuess){
             avgx += p.x;
             avgy += p.y;
+            avge += p.e;
 
             if (p.e > errorThreshold){
                 Log.v(TAG, "Error is too large");
@@ -166,10 +162,15 @@ public class Point {
 
         double xguess = avgx/bestGuess.size();
         double yguess = avgy/bestGuess.size();
+        double avgError = avge/bestGuess.size();
 
-        return new Point(xguess, yguess);
+        Point estimate = new Point(xguess, yguess);
+        estimate.e = avgError;
+        return estimate;
     }
 
+    //chooses a neighbor randomly among the 8 possible points that border the point at
+    //pointsList[x][y]
     private static Point findRandomNeighbor(int x, int y, Point[][] pointsList, int[] nextIndex){
         int counter = 0;
         Point[] neighbors = new Point[8];
@@ -265,7 +266,7 @@ public class Point {
 
 
     //calculate the error with a transmitter at testPoint oriented in the direction theta
-    //degrees
+    //degrees using the values in searchlist, dirList and rList
     private static double calcError(double theta, Point testPoint, Point[] searchList,
                                     double[] dirList, double[] rList){
         int NUMVALS = 50; //only test the last 50 values
@@ -340,13 +341,8 @@ public class Point {
                 }
             }
 
-            //System.out.println(String.format("Source: %.4f, %.4f, Error: %.4f, Degree: %d",
-            //startPoint.x, startPoint.y, startPoint.e, startPoint.d));
-
             int j = 1;
             while (j <= jmax && olderror > errormax){
-                //System.out.println("point:" + Double.toString(startPoint.x) + "," + Double.toString(startPoint.y));
-                //System.out.println("still point:" + Double.toString(pointsList[xIndex][yIndex].x) + ", " +Double.toString(pointsList[xIndex][yIndex].y));
                 double nexterror = 0;
 
                 //get a random neighbor
@@ -360,9 +356,6 @@ public class Point {
                     nextPoint.setError(nexterror, degree);
                     storeGuess(bestGuess, nexterror, nextPoint, degree);
                 }
-
-                //System.out.println(String.format("Source: %.4f, %.4f, Error: %.4f, Degree: %d",
-                //nextPoint.x, nextPoint.y, nextPoint.e, nextPoint.d));
 
                 //simulated annealing
                 double delta = nexterror - olderror;
@@ -384,7 +377,6 @@ public class Point {
                     }
                 }
                 temp = temp*alpha;
-                //System.out.println("temp: " + Double.toString(temp));
                 j+=1;
             }
         }
@@ -394,7 +386,6 @@ public class Point {
 
         }
 
-        //Point guess = findAvg(bestGuess);
         //turn the guess into a latlng
         return findAvg(bestGuess);
     }
